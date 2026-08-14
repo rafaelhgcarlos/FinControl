@@ -8,6 +8,16 @@ export function formatCurrencyFromCents(valueInCents: number) {
   return currencyFormatter.format(valueInCents / 100);
 }
 
+export function parseCurrencyToCents(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return 0;
+  return Number.parseInt(digits, 10);
+}
+
+export function formatCurrencyInputFromCents(valueInCents: number) {
+  return formatCurrencyFromCents(valueInCents);
+}
+
 export function sumCents(values: number[]) {
   return values.reduce((total, value) => {
     assertIntegerCents(value);

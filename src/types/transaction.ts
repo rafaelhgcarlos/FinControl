@@ -1,16 +1,24 @@
 import type { UserScopedEntity } from "./common";
 
-export type TransactionType = "income" | "expense" | "transfer" | "credit_card_purchase" | "invoice_payment";
+export type TransactionType = "INCOME" | "EXPENSE" | "TRANSFER";
 
 export type Transaction = UserScopedEntity & {
-  description: string;
   amountInCents: number;
-  date: Date;
   type: TransactionType;
-  accountId?: string;
+  categoryId?: string;
+  accountId: string;
   destinationAccountId?: string;
-  creditCardId?: string;
-  invoiceId?: string;
-  recurrenceKey?: string;
-  installmentKey?: string;
+  date: Date;
+  description?: string;
+};
+
+export type TransactionFilters = {
+  startDate?: Date;
+  endDate?: Date;
+  type?: TransactionType | "ALL";
+  categoryId?: string;
+  accountId?: string;
+  minAmountInCents?: number;
+  maxAmountInCents?: number;
+  search?: string;
 };

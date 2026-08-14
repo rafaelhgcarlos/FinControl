@@ -10,12 +10,10 @@ export function createConverter<T extends FirestoreDateFields>(): FirestoreDataC
   return {
     fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): T {
       const data = snapshot.data(options);
+      const convertedData = convertFirestoreValue(data) as DocumentData;
       return {
-        ...data,
+        ...convertedData,
         id: snapshot.id,
-        createdAt: convertTimestamp(data.createdAt),
-        updatedAt: convertTimestamp(data.updatedAt),
-        date: convertTimestamp(data.date),
       } as unknown as T;
     },
     toFirestore(modelObject: T): DocumentData {
@@ -24,6 +22,13 @@ export function createConverter<T extends FirestoreDateFields>(): FirestoreDataC
   };
 }
 
-function convertTimestamp(value: unknown) {
-  return value instanceof Timestamp ? value.toDate() : value;
+function convertFirestoreValue(value: unknown): unknown {
+  if (value instanceof Timestamp) return value.toDate();
+  if (Array.isArray(value)) return value.map(convertFirestoreValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, convertFirestoreValue(item)]),
+    );
+  }
+  return value;
 }

@@ -16,6 +16,7 @@ import {
   getDoc,
   getDocs,
   query,
+  runTransaction,
   setDoc,
   Timestamp,
   updateDoc,
@@ -56,8 +57,27 @@ function accountData(userId = userA) {
     createdAt: now,
     updatedAt: now,
     name: "Conta corrente",
-    balanceInCents: 125000,
-    archived: false,
+    type: "CHECKING",
+    initialBalanceInCents: 125000,
+    currentBalanceInCents: 125000,
+    institution: "Banco",
+    color: "#059669",
+    icon: "Landmark",
+    status: "ACTIVE",
+  };
+}
+
+function categoryData(userId = userA) {
+  return {
+    userId,
+    createdAt: now,
+    updatedAt: now,
+    name: "Alimentacao",
+    type: "EXPENSE",
+    icon: "Tag",
+    color: "#2563eb",
+    status: "ACTIVE",
+    isDefault: false,
   };
 }
 
@@ -69,8 +89,40 @@ function transactionData(userId = userA) {
     description: "Mercado",
     amountInCents: 3290,
     date: now,
-    type: "expense",
+    type: "EXPENSE",
     accountId: "account-a",
+    categoryId: "category-a",
+  };
+}
+
+function cardData(userId = userA) {
+  return {
+    userId,
+    createdAt: now,
+    updatedAt: now,
+    name: "Visa Gold",
+    institution: "Banco",
+    limitInCents: 500000,
+    committedLimitInCents: 0,
+    closingDay: 10,
+    dueDay: 20,
+    color: "#2563eb",
+    status: "ACTIVE",
+  };
+}
+
+function invoiceData(userId = userA) {
+  return {
+    userId,
+    createdAt: now,
+    updatedAt: now,
+    cardId: "card-a",
+    cycleKey: "2026-08",
+    totalInCents: 10000,
+    paidInCents: 0,
+    closingDate: now,
+    dueDate: now,
+    status: "OPEN",
   };
 }
 
@@ -98,6 +150,7 @@ describe("Firestore security rules", () => {
     const dbA = authedDb(userA);
 
     await assertSucceeds(setDoc(doc(dbA, "accounts", "account-a"), accountData(userA)));
+    await assertSucceeds(setDoc(doc(dbA, "categories", "category-a"), categoryData(userA)));
     await assertFails(setDoc(doc(dbA, "accounts", "spoofed-account"), accountData(userB)));
     await assertFails(setDoc(doc(dbA, "transactions", "spoofed-transaction"), transactionData(userB)));
   });
@@ -125,15 +178,49 @@ describe("Firestore security rules", () => {
       createdAt: now,
       updatedAt: now,
       name: "Sem saldo",
-      archived: false,
+      status: "ACTIVE",
     };
     const invalidTransaction = {
       ...transactionData(userA),
       type: "unsupported",
     };
+    const invalidCategory = {
+      ...categoryData(userA),
+      type: "TRANSFER",
+    };
 
     await assertFails(setDoc(doc(dbA, "accounts", "invalid-account"), invalidAccount));
     await assertFails(setDoc(doc(dbA, "transactions", "invalid-transaction"), invalidTransaction));
+    await assertFails(setDoc(doc(dbA, "categories", "invalid-category"), invalidCategory));
+  });
+
+  it("prevents deleting categories and changing default category ownership flags incorrectly", async () => {
+    await seedPrivateDoc("categories", "category-a", { ...categoryData(userA), isDefault: true });
+    const dbA = authedDb(userA);
+
+    await assertSucceeds(updateDoc(doc(dbA, "categories", "category-a"), { status: "ARCHIVED", updatedAt: now }));
+    await assertFails(updateDoc(doc(dbA, "categories", "category-a"), { isDefault: false, updatedAt: now }));
+    await assertFails(deleteDoc(doc(dbA, "categories", "category-a")));
+  });
+
+  it("allows repairing legacy owned categories and accounts with valid private schemas", async () => {
+    await seedPrivateDoc("categories", "legacy-category", { userId: userA, name: "Outros" });
+    await seedPrivateDoc("accounts", "legacy-account", { userId: userA, name: "Conta antiga", balanceInCents: 100000, archived: false });
+    const dbA = authedDb(userA);
+
+    await assertSucceeds(setDoc(doc(dbA, "categories", "legacy-category"), categoryData(userA), { merge: true }));
+    await assertSucceeds(updateDoc(doc(dbA, "accounts", "legacy-account"), {
+      userId: userA,
+      createdAt: now,
+      updatedAt: now,
+      name: "Conta antiga",
+      type: "CHECKING",
+      initialBalanceInCents: 100000,
+      currentBalanceInCents: 100000,
+      color: "#059669",
+      icon: "Landmark",
+      status: "ACTIVE",
+    }));
   });
 
   it("keeps salary, balance, expense, cards, history, and goals collections non-public", async () => {
@@ -187,5 +274,226 @@ describe("Firestore security rules", () => {
 
     await assertFails(setDoc(doc(dbA, "publicReports", "report-a"), { userId: userA, createdAt: now, updatedAt: now }));
     await assertFails(getDoc(doc(dbA, "publicReports", "report-a")));
+  });
+
+  it("supports the financial workflow while preserving user isolation", async () => {
+    const dbA = authedDb(userA);
+    const dbB = authedDb(userB);
+    const accountRef = doc(dbA, "accounts", "workflow-account");
+    const categoryRef = doc(dbA, "categories", "workflow-category");
+    const expenseRef = doc(dbA, "transactions", "workflow-expense");
+    const incomeCategoryRef = doc(dbA, "categories", "workflow-income-category");
+    const incomeRef = doc(dbA, "transactions", "workflow-income");
+
+    await assertSucceeds(setDoc(accountRef, {
+      ...accountData(userA),
+      initialBalanceInCents: 100000,
+      currentBalanceInCents: 100000,
+    }));
+    await assertSucceeds(setDoc(categoryRef, categoryData(userA)));
+    await assertSucceeds(setDoc(incomeCategoryRef, {
+      ...categoryData(userA),
+      name: "Receita personalizada",
+      type: "INCOME",
+    }));
+
+    await assertSucceeds(runTransaction(dbA, async (transaction) => {
+      const account = await transaction.get(accountRef);
+      transaction.update(accountRef, {
+        currentBalanceInCents: account.data()?.currentBalanceInCents - 10000,
+        updatedAt: now,
+      });
+      transaction.set(expenseRef, {
+        ...transactionData(userA),
+        amountInCents: 10000,
+        description: "Despesa de teste",
+        accountId: "workflow-account",
+        categoryId: "workflow-category",
+      });
+    }));
+
+    expect((await getDoc(accountRef)).data()?.currentBalanceInCents).toBe(90000);
+
+    await assertSucceeds(runTransaction(dbA, async (transaction) => {
+      const account = await transaction.get(accountRef);
+      transaction.update(accountRef, {
+        currentBalanceInCents: account.data()?.currentBalanceInCents + 200000,
+        updatedAt: now,
+      });
+      transaction.set(incomeRef, {
+        ...transactionData(userA),
+        amountInCents: 200000,
+        description: "Receita de teste",
+        type: "INCOME",
+        accountId: "workflow-account",
+        categoryId: "workflow-income-category",
+      });
+    }));
+
+    expect((await getDoc(accountRef)).data()?.currentBalanceInCents).toBe(290000);
+    await assertSucceeds(getDoc(expenseRef));
+    await assertSucceeds(getDoc(incomeRef));
+    await assertFails(getDoc(doc(dbB, "accounts", "workflow-account")));
+    await assertFails(getDoc(doc(dbB, "categories", "workflow-category")));
+    await assertFails(getDoc(doc(dbB, "transactions", "workflow-expense")));
+  });
+
+  it("supports credit card purchase, invoice, and payment isolation", async () => {
+    const dbA = authedDb(userA);
+    const dbB = authedDb(userB);
+    const cardRef = doc(dbA, "cards", "card-a");
+    const invoiceRef = doc(dbA, "cardInvoices", "card-a_2026-08");
+    const purchaseRef = doc(dbA, "cardPurchases", "purchase-a");
+    const installmentRef = doc(dbA, "cardInstallments", "purchase-a_1");
+    const paymentRef = doc(dbA, "cardPayments", "payment-a");
+    const accountRef = doc(dbA, "accounts", "payment-account");
+    const cardCategoryRef = doc(dbA, "categories", "card-category");
+
+    await assertSucceeds(setDoc(cardRef, cardData(userA)));
+    await assertSucceeds(setDoc(doc(dbA, "cards", "unused-card"), cardData(userA)));
+    await assertFails(deleteDoc(doc(dbB, "cards", "unused-card")));
+    await assertSucceeds(deleteDoc(doc(dbA, "cards", "unused-card")));
+    await assertSucceeds(setDoc(cardCategoryRef, categoryData(userA)));
+    await assertSucceeds(setDoc(accountRef, {
+      ...accountData(userA),
+      initialBalanceInCents: 100000,
+      currentBalanceInCents: 100000,
+    }));
+    await assertSucceeds(getDoc(doc(dbA, "cardPurchases", "missing-purchase")));
+    await assertSucceeds(getDoc(doc(dbA, "cardInvoices", "missing-invoice")));
+    await assertSucceeds(getDoc(doc(dbA, "cardInstallments", "missing-installment")));
+    await assertSucceeds(runTransaction(dbA, async (transaction) => {
+      const missingPurchase = await transaction.get(purchaseRef);
+      const missingInvoice = await transaction.get(invoiceRef);
+      const missingInstallment = await transaction.get(installmentRef);
+      expect(missingPurchase.exists()).toBe(false);
+      expect(missingInvoice.exists()).toBe(false);
+      expect(missingInstallment.exists()).toBe(false);
+    }));
+
+    await assertSucceeds(runTransaction(dbA, async (transaction) => {
+      const card = await transaction.get(cardRef);
+      transaction.update(cardRef, { committedLimitInCents: card.data()?.committedLimitInCents + 10000, updatedAt: now });
+      transaction.set(purchaseRef, {
+        userId: userA,
+        createdAt: now,
+        updatedAt: now,
+        cardId: "card-a",
+        categoryId: "card-category",
+        description: "Compra teste",
+        amountInCents: 10000,
+        purchaseDate: now,
+        installmentsCount: 1,
+        firstInstallmentDate: now,
+        idempotencyKey: "purchase-a",
+      });
+      transaction.set(invoiceRef, invoiceData(userA));
+      transaction.set(installmentRef, {
+        userId: userA,
+        createdAt: now,
+        updatedAt: now,
+        purchaseId: "purchase-a",
+        cardId: "card-a",
+        categoryId: "card-category",
+        invoiceId: "card-a_2026-08",
+        installmentNumber: 1,
+        installmentsCount: 1,
+        amountInCents: 10000,
+        dueDate: now,
+        description: "Compra teste",
+        status: "OPEN",
+      });
+    }));
+    await assertSucceeds(setDoc(doc(dbA, "cardPurchases", "purchase-editable"), {
+      userId: userA,
+      createdAt: now,
+      updatedAt: now,
+      cardId: "card-a",
+      description: "Compra editavel",
+      amountInCents: 5000,
+      purchaseDate: now,
+      installmentsCount: 1,
+      firstInstallmentDate: now,
+      idempotencyKey: "purchase-editable",
+    }));
+    await assertSucceeds(setDoc(doc(dbA, "cardInstallments", "purchase-editable_1"), {
+      userId: userA,
+      createdAt: now,
+      updatedAt: now,
+      purchaseId: "purchase-editable",
+      cardId: "card-a",
+      invoiceId: "card-a_2026-08",
+      installmentNumber: 1,
+      installmentsCount: 1,
+      amountInCents: 5000,
+      dueDate: now,
+      description: "Compra editavel",
+      status: "OPEN",
+    }));
+    await assertSucceeds(updateDoc(doc(dbA, "cardPurchases", "purchase-editable"), {
+      description: "Compra editada",
+      amountInCents: 6000,
+      updatedAt: now,
+    }));
+    await assertFails(updateDoc(doc(dbB, "cardPurchases", "purchase-editable"), {
+      description: "Compra invadida",
+      updatedAt: now,
+    }));
+    await assertFails(deleteDoc(doc(dbB, "cardPurchases", "purchase-editable")));
+    await assertSucceeds(deleteDoc(doc(dbA, "cardInstallments", "purchase-editable_1")));
+    await assertSucceeds(deleteDoc(doc(dbA, "cardPurchases", "purchase-editable")));
+    await assertSucceeds(setDoc(doc(dbA, "cardInvoices", "card-a_2026-09"), {
+      ...invoiceData(userA),
+      cycleKey: "2026-09",
+    }));
+    await assertFails(deleteDoc(doc(dbB, "cardInvoices", "card-a_2026-09")));
+    await assertSucceeds(deleteDoc(doc(dbA, "cardInvoices", "card-a_2026-09")));
+    await assertSucceeds(setDoc(doc(dbA, "cardPayments", "payment-delete"), {
+      userId: userA,
+      createdAt: now,
+      updatedAt: now,
+      cardId: "card-a",
+      invoiceId: "card-a_2026-08",
+      accountId: "payment-account",
+      amountInCents: 1000,
+      paidAt: now,
+    }));
+    await assertFails(deleteDoc(doc(dbB, "cardPayments", "payment-delete")));
+    await assertSucceeds(deleteDoc(doc(dbA, "cardPayments", "payment-delete")));
+
+    await assertSucceeds(runTransaction(dbA, async (transaction) => {
+      const card = await transaction.get(cardRef);
+      const account = await transaction.get(accountRef);
+      transaction.update(accountRef, { currentBalanceInCents: account.data()?.currentBalanceInCents - 10000, updatedAt: now });
+      transaction.update(cardRef, { committedLimitInCents: card.data()?.committedLimitInCents - 10000, updatedAt: now });
+      transaction.update(invoiceRef, { paidInCents: 10000, status: "PAID", updatedAt: now });
+      transaction.set(paymentRef, {
+        userId: userA,
+        createdAt: now,
+        updatedAt: now,
+        cardId: "card-a",
+        invoiceId: "card-a_2026-08",
+        accountId: "payment-account",
+        amountInCents: 10000,
+        paidAt: now,
+      });
+    }));
+
+    expect((await getDoc(cardRef)).data()?.committedLimitInCents).toBe(0);
+    expect((await getDoc(accountRef)).data()?.currentBalanceInCents).toBe(90000);
+    await assertFails(getDoc(doc(dbB, "cards", "card-a")));
+    await assertFails(getDoc(doc(dbB, "cardInvoices", "card-a_2026-08")));
+    await assertFails(setDoc(doc(dbB, "cardPurchases", "spoof"), {
+      userId: userB,
+      createdAt: now,
+      updatedAt: now,
+      cardId: "card-a",
+      description: "Compra indevida",
+      amountInCents: 10000,
+      purchaseDate: now,
+      installmentsCount: 1,
+      firstInstallmentDate: now,
+      idempotencyKey: "spoof",
+    }));
   });
 });

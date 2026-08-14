@@ -16,12 +16,12 @@ export function Modal({ children, description, footer, isOpen, onClose, title }:
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-4 sm:items-center" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:items-center sm:p-4" role="presentation">
       <section
         aria-describedby={description ? "modal-description" : undefined}
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl dark:bg-slate-900"
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900"
         role="dialog"
       >
         <div className="flex items-start justify-between gap-4">

@@ -30,37 +30,166 @@ service cloud.firestore {
         && request.resource.data.updatedAt is timestamp;
     }
 
-    function commonPrivateUpdateFields(requiredFields, optionalFields) {
-      return request.resource.data.keys().hasAll(requiredFields)
-        && request.resource.data.keys().hasOnly(requiredFields.concat(optionalFields))
-        && request.resource.data.userId is string
-        && request.resource.data.createdAt is timestamp
-        && request.resource.data.updatedAt is timestamp;
+    function validAccount() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'name', 'type', 'initialBalanceInCents', 'currentBalanceInCents', 'color', 'icon', 'status'];
+      let optional = ['id', 'institution', 'balanceInCents', 'archived'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.name is string
+        && request.resource.data.type in ['CHECKING', 'SAVINGS', 'WALLET', 'DIGITAL', 'CASH', 'INVESTMENTS']
+        && request.resource.data.initialBalanceInCents is int
+        && request.resource.data.currentBalanceInCents is int
+        && (!('institution' in request.resource.data) || request.resource.data.institution is string || request.resource.data.institution == null)
+        && request.resource.data.color is string
+        && request.resource.data.icon is string
+        && request.resource.data.status in ['ACTIVE', 'ARCHIVED'];
     }
 
-    function validAccount() {
-      let required = ['userId', 'createdAt', 'updatedAt', 'name', 'balanceInCents', 'archived'];
+    function validCategory() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'name', 'type', 'icon', 'color', 'status', 'isDefault'];
       let optional = ['id'];
       return commonPrivateCreateFields(required, optional)
         && request.resource.data.name is string
-        && request.resource.data.balanceInCents is int
-        && request.resource.data.archived is bool;
+        && request.resource.data.type in ['INCOME', 'EXPENSE']
+        && request.resource.data.icon is string
+        && request.resource.data.color is string
+        && request.resource.data.status in ['ACTIVE', 'ARCHIVED']
+        && request.resource.data.isDefault is bool;
     }
 
     function validTransaction() {
-      let required = ['userId', 'createdAt', 'updatedAt', 'description', 'amountInCents', 'date', 'type'];
-      let optional = ['id', 'accountId', 'destinationAccountId', 'creditCardId', 'invoiceId', 'recurrenceKey', 'installmentKey'];
+      let required = ['userId', 'createdAt', 'updatedAt', 'amountInCents', 'date', 'type', 'accountId'];
+      let optional = ['id', 'description', 'categoryId', 'destinationAccountId'];
       return commonPrivateCreateFields(required, optional)
+        && request.resource.data.amountInCents is int
+        && request.resource.data.amountInCents > 0
+        && request.resource.data.date is timestamp
+        && request.resource.data.type in ['INCOME', 'EXPENSE', 'TRANSFER']
+        && request.resource.data.accountId is string
+        && (!('description' in request.resource.data) || request.resource.data.description is string || request.resource.data.description == null)
+        && (!('categoryId' in request.resource.data) || request.resource.data.categoryId is string || request.resource.data.categoryId == null)
+        && (!('destinationAccountId' in request.resource.data) || request.resource.data.destinationAccountId is string || request.resource.data.destinationAccountId == null)
+        && (request.resource.data.type == 'TRANSFER' || request.resource.data.categoryId is string)
+        && (request.resource.data.type != 'TRANSFER' || request.resource.data.destinationAccountId is string)
+        && (request.resource.data.type != 'TRANSFER' || request.resource.data.destinationAccountId != request.resource.data.accountId);
+    }
+
+    function accountBelongsToUser(accountId) {
+      return exists(/databases/$(database)/documents/accounts/$(accountId))
+        && get(/databases/$(database)/documents/accounts/$(accountId)).data.userId == request.auth.uid;
+    }
+
+    function accountAcceptsNewTransactions(accountId) {
+      return accountBelongsToUser(accountId)
+        && get(/databases/$(database)/documents/accounts/$(accountId)).data.status == 'ACTIVE';
+    }
+
+    function categoryBelongsToUser(categoryId) {
+      return exists(/databases/$(database)/documents/categories/$(categoryId))
+        && get(/databases/$(database)/documents/categories/$(categoryId)).data.userId == request.auth.uid;
+    }
+
+    function categoryAcceptsTransaction(categoryId, transactionType) {
+      return categoryBelongsToUser(categoryId)
+        && get(/databases/$(database)/documents/categories/$(categoryId)).data.status == 'ACTIVE'
+        && get(/databases/$(database)/documents/categories/$(categoryId)).data.type == transactionType;
+    }
+
+    function validTransactionReferences() {
+      return accountAcceptsNewTransactions(request.resource.data.accountId)
+        && (request.resource.data.type != 'TRANSFER' || accountAcceptsNewTransactions(request.resource.data.destinationAccountId))
+        && (request.resource.data.type == 'TRANSFER' || categoryAcceptsTransaction(request.resource.data.categoryId, request.resource.data.type));
+    }
+
+    function validCard() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'name', 'limitInCents', 'committedLimitInCents', 'closingDay', 'dueDay', 'color', 'status'];
+      let optional = ['id', 'institution', 'lastFour', 'brand'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.name is string
+        && request.resource.data.limitInCents is int
+        && request.resource.data.limitInCents > 0
+        && request.resource.data.committedLimitInCents is int
+        && request.resource.data.committedLimitInCents >= 0
+        && request.resource.data.committedLimitInCents <= request.resource.data.limitInCents
+        && request.resource.data.closingDay is int
+        && request.resource.data.closingDay >= 1
+        && request.resource.data.closingDay <= 31
+        && request.resource.data.dueDay is int
+        && request.resource.data.dueDay >= 1
+        && request.resource.data.dueDay <= 31
+        && request.resource.data.color is string
+        && request.resource.data.status in ['ACTIVE', 'ARCHIVED']
+        && (!('institution' in request.resource.data) || request.resource.data.institution is string || request.resource.data.institution == null)
+        && (!('lastFour' in request.resource.data) || request.resource.data.lastFour is string || request.resource.data.lastFour == null)
+        && (!('brand' in request.resource.data) || request.resource.data.brand in ['VISA', 'MASTERCARD', 'ELO', 'AMEX', 'HIPERCARD', 'OTHER']);
+    }
+
+    function validCardPurchase() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'cardId', 'description', 'amountInCents', 'purchaseDate', 'installmentsCount', 'firstInstallmentDate', 'idempotencyKey'];
+      let optional = ['id', 'categoryId'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.cardId is string
         && request.resource.data.description is string
         && request.resource.data.amountInCents is int
-        && request.resource.data.date is timestamp
-        && request.resource.data.type in ['income', 'expense', 'transfer', 'credit_card_purchase', 'invoice_payment']
-        && (!('accountId' in request.resource.data) || request.resource.data.accountId is string)
-        && (!('destinationAccountId' in request.resource.data) || request.resource.data.destinationAccountId is string)
-        && (!('creditCardId' in request.resource.data) || request.resource.data.creditCardId is string)
-        && (!('invoiceId' in request.resource.data) || request.resource.data.invoiceId is string)
-        && (!('recurrenceKey' in request.resource.data) || request.resource.data.recurrenceKey is string)
-        && (!('installmentKey' in request.resource.data) || request.resource.data.installmentKey is string);
+        && request.resource.data.amountInCents > 0
+        && request.resource.data.purchaseDate is timestamp
+        && request.resource.data.installmentsCount is int
+        && request.resource.data.installmentsCount >= 1
+        && request.resource.data.installmentsCount <= 48
+        && request.resource.data.firstInstallmentDate is timestamp
+        && request.resource.data.idempotencyKey is string
+        && (!('categoryId' in request.resource.data) || request.resource.data.categoryId is string);
+    }
+
+    function validCardInstallment() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'purchaseId', 'cardId', 'invoiceId', 'installmentNumber', 'installmentsCount', 'amountInCents', 'dueDate', 'description', 'status'];
+      let optional = ['id', 'categoryId'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.purchaseId is string
+        && request.resource.data.cardId is string
+        && request.resource.data.invoiceId is string
+        && request.resource.data.installmentNumber is int
+        && request.resource.data.installmentNumber >= 1
+        && request.resource.data.installmentsCount is int
+        && request.resource.data.installmentsCount >= request.resource.data.installmentNumber
+        && request.resource.data.amountInCents is int
+        && request.resource.data.amountInCents > 0
+        && request.resource.data.dueDate is timestamp
+        && request.resource.data.description is string
+        && request.resource.data.status in ['OPEN', 'PAID']
+        && (!('categoryId' in request.resource.data) || request.resource.data.categoryId is string);
+    }
+
+    function validCardInvoice() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'cardId', 'cycleKey', 'totalInCents', 'paidInCents', 'closingDate', 'dueDate', 'status'];
+      let optional = ['id'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.cardId is string
+        && request.resource.data.cycleKey is string
+        && request.resource.data.totalInCents is int
+        && request.resource.data.totalInCents >= 0
+        && request.resource.data.paidInCents is int
+        && request.resource.data.paidInCents >= 0
+        && request.resource.data.paidInCents <= request.resource.data.totalInCents
+        && request.resource.data.closingDate is timestamp
+        && request.resource.data.dueDate is timestamp
+        && request.resource.data.status in ['OPEN', 'CLOSED', 'PAID', 'OVERDUE'];
+    }
+
+    function validCardPayment() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'cardId', 'invoiceId', 'accountId', 'amountInCents', 'paidAt'];
+      let optional = ['id'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.cardId is string
+        && request.resource.data.invoiceId is string
+        && request.resource.data.accountId is string
+        && request.resource.data.amountInCents is int
+        && request.resource.data.amountInCents > 0
+        && request.resource.data.paidAt is timestamp;
+    }
+
+    function cardBelongsToUser(cardId) {
+      return exists(/databases/$(database)/documents/cards/$(cardId))
+        && get(/databases/$(database)/documents/cards/$(cardId)).data.userId == request.auth.uid;
     }
 
     function validGenericPrivateDocument() {
@@ -139,10 +268,82 @@ service cloud.firestore {
       allow delete: if ownsExistingResource();
     }
 
+    match /categories/{documentId} {
+      allow read: if ownsExistingResource();
+      allow create: if ownsIncomingResource() && validCategory();
+      allow update: if ownsExistingResource()
+        && ownsIncomingResource()
+        && userIdUnchanged()
+        && validCategory()
+        && (!('isDefault' in resource.data) || !resource.data.isDefault || request.resource.data.isDefault == true);
+      allow delete: if false;
+    }
+
     match /transactions/{documentId} {
       allow read: if ownsExistingResource();
-      allow create: if ownsIncomingResource() && validTransaction();
-      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validTransaction();
+      allow create: if ownsIncomingResource() && validTransaction() && validTransactionReferences();
+      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validTransaction() && validTransactionReferences();
+      allow delete: if ownsExistingResource();
+    }
+
+    match /cards/{documentId} {
+      allow read: if ownsExistingResource();
+      allow create: if ownsIncomingResource() && validCard();
+      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validCard();
+      allow delete: if false;
+    }
+
+    match /cardPurchases/{documentId} {
+      allow get: if signedIn()
+        && (!exists(/databases/$(database)/documents/cardPurchases/$(documentId)) || ownsExistingResource());
+      allow list: if ownsExistingResource();
+      allow create: if ownsIncomingResource()
+        && validCardPurchase()
+        && cardBelongsToUser(request.resource.data.cardId)
+        && (!('categoryId' in request.resource.data) || categoryAcceptsTransaction(request.resource.data.categoryId, 'EXPENSE'));
+      allow update: if ownsExistingResource()
+        && ownsIncomingResource()
+        && userIdUnchanged()
+        && validCardPurchase()
+        && resource.data.cardId == request.resource.data.cardId
+        && cardBelongsToUser(request.resource.data.cardId)
+        && (!('categoryId' in request.resource.data) || categoryAcceptsTransaction(request.resource.data.categoryId, 'EXPENSE'));
+      allow delete: if ownsExistingResource();
+    }
+
+    match /cardInstallments/{documentId} {
+      allow get: if signedIn()
+        && (!exists(/databases/$(database)/documents/cardInstallments/$(documentId)) || ownsExistingResource());
+      allow list: if ownsExistingResource();
+      allow create: if ownsIncomingResource()
+        && validCardInstallment()
+        && cardBelongsToUser(request.resource.data.cardId)
+        && (!('categoryId' in request.resource.data) || categoryAcceptsTransaction(request.resource.data.categoryId, 'EXPENSE'));
+      allow update: if ownsExistingResource()
+        && ownsIncomingResource()
+        && userIdUnchanged()
+        && validCardInstallment()
+        && cardBelongsToUser(request.resource.data.cardId)
+        && (!('categoryId' in request.resource.data) || categoryAcceptsTransaction(request.resource.data.categoryId, 'EXPENSE'));
+      allow delete: if ownsExistingResource();
+    }
+
+    match /cardInvoices/{documentId} {
+      allow get: if signedIn()
+        && (!exists(/databases/$(database)/documents/cardInvoices/$(documentId)) || ownsExistingResource());
+      allow list: if ownsExistingResource();
+      allow create: if ownsIncomingResource() && validCardInvoice() && cardBelongsToUser(request.resource.data.cardId);
+      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validCardInvoice() && cardBelongsToUser(request.resource.data.cardId);
+      allow delete: if ownsExistingResource();
+    }
+
+    match /cardPayments/{documentId} {
+      allow read: if ownsExistingResource();
+      allow create: if ownsIncomingResource()
+        && validCardPayment()
+        && cardBelongsToUser(request.resource.data.cardId)
+        && accountBelongsToUser(request.resource.data.accountId);
+      allow update: if false;
       allow delete: if ownsExistingResource();
     }
 

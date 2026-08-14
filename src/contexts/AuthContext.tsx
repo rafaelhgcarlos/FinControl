@@ -1,6 +1,7 @@
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { useCallback, useContext, useEffect, useMemo, useState, createContext, type PropsWithChildren } from "react";
 import { firebaseAuth } from "../firebase/config";
+import { ensureDefaultCategories } from "../services/categoriesService";
 import { getUserProfile, ensureUserProfile, updateUserProfile } from "../services/userService";
 import type { UserProfile, UserProfileUpdate } from "../types/user";
 
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     const currentProfile = await getUserProfile(currentUser.uid);
     setProfile(currentProfile ?? (await ensureUserProfile(currentUser)));
+    void ensureDefaultCategories(currentUser.uid).catch(() => undefined);
   }, []);
 
   useEffect(() => {

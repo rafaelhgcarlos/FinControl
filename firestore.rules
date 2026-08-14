@@ -1,0 +1,166 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function signedInAs(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function ownsExistingResource() {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function ownsIncomingResource() {
+      return signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    function userIdUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['userId']);
+    }
+
+    function commonPrivateCreateFields(requiredFields, optionalFields) {
+      return request.resource.data.keys().hasAll(requiredFields)
+        && request.resource.data.keys().hasOnly(requiredFields.concat(optionalFields))
+        && request.resource.data.userId is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function commonPrivateUpdateFields(requiredFields, optionalFields) {
+      return request.resource.data.keys().hasAll(requiredFields)
+        && request.resource.data.keys().hasOnly(requiredFields.concat(optionalFields))
+        && request.resource.data.userId is string
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validAccount() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'name', 'balanceInCents', 'archived'];
+      let optional = ['id'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.name is string
+        && request.resource.data.balanceInCents is int
+        && request.resource.data.archived is bool;
+    }
+
+    function validTransaction() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'description', 'amountInCents', 'date', 'type'];
+      let optional = ['id', 'accountId', 'destinationAccountId', 'creditCardId', 'invoiceId', 'recurrenceKey', 'installmentKey'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.description is string
+        && request.resource.data.amountInCents is int
+        && request.resource.data.date is timestamp
+        && request.resource.data.type in ['income', 'expense', 'transfer', 'credit_card_purchase', 'invoice_payment']
+        && (!('accountId' in request.resource.data) || request.resource.data.accountId is string)
+        && (!('destinationAccountId' in request.resource.data) || request.resource.data.destinationAccountId is string)
+        && (!('creditCardId' in request.resource.data) || request.resource.data.creditCardId is string)
+        && (!('invoiceId' in request.resource.data) || request.resource.data.invoiceId is string)
+        && (!('recurrenceKey' in request.resource.data) || request.resource.data.recurrenceKey is string)
+        && (!('installmentKey' in request.resource.data) || request.resource.data.installmentKey is string);
+    }
+
+    function validGenericPrivateDocument() {
+      let required = ['userId', 'createdAt', 'updatedAt'];
+      let optional = [
+        'id',
+        'name',
+        'description',
+        'amountInCents',
+        'balanceInCents',
+        'limitInCents',
+        'targetAmountInCents',
+        'currentAmountInCents',
+        'spentInCents',
+        'dueDay',
+        'closingDay',
+        'date',
+        'month',
+        'archived',
+        'status',
+        'type'
+      ];
+      return commonPrivateCreateFields(required, optional);
+    }
+
+    function isGenericPrivateCollection(collectionName) {
+      return collectionName in [
+        'cards',
+        'budgets',
+        'goals',
+        'salaries',
+        'balances',
+        'expenses',
+        'history',
+        'cartoes',
+        'orcamentos',
+        'metas',
+        'salarios',
+        'saldos',
+        'gastos',
+        'historico'
+      ];
+    }
+
+    function validUserProfileCreate(userId) {
+      return request.resource.data.keys().hasAll(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone'])
+        && request.resource.data.keys().hasOnly(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone'])
+        && request.resource.data.id == userId
+        && (request.resource.data.email is string || request.resource.data.email == null)
+        && (request.resource.data.displayName is string || request.resource.data.displayName == null)
+        && request.resource.data.locale == 'pt-BR'
+        && request.resource.data.currency == 'BRL'
+        && request.resource.data.timeZone == 'America/Sao_Paulo';
+    }
+
+    function validUserProfileUpdate(userId) {
+      return resource.data.id == userId
+        && request.resource.data.id == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'currency', 'timeZone'])
+        && (!('displayName' in request.resource.data) || request.resource.data.displayName is string || request.resource.data.displayName == null)
+        && (!('currency' in request.resource.data) || request.resource.data.currency == 'BRL')
+        && (!('timeZone' in request.resource.data) || request.resource.data.timeZone == 'America/Sao_Paulo');
+    }
+
+    match /users/{userId} {
+      allow read: if signedInAs(userId);
+      allow create: if signedInAs(userId) && validUserProfileCreate(userId);
+      allow update: if signedInAs(userId) && validUserProfileUpdate(userId);
+      allow delete: if false;
+    }
+
+    match /accounts/{documentId} {
+      allow read: if ownsExistingResource();
+      allow create: if ownsIncomingResource() && validAccount();
+      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validAccount();
+      allow delete: if ownsExistingResource();
+    }
+
+    match /transactions/{documentId} {
+      allow read: if ownsExistingResource();
+      allow create: if ownsIncomingResource() && validTransaction();
+      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validTransaction();
+      allow delete: if ownsExistingResource();
+    }
+
+    match /{collectionName}/{documentId} {
+      allow read: if isGenericPrivateCollection(collectionName) && ownsExistingResource();
+      allow create: if isGenericPrivateCollection(collectionName)
+        && ownsIncomingResource()
+        && validGenericPrivateDocument();
+      allow update: if isGenericPrivateCollection(collectionName)
+        && ownsExistingResource()
+        && ownsIncomingResource()
+        && userIdUnchanged()
+        && validGenericPrivateDocument();
+      allow delete: if isGenericPrivateCollection(collectionName) && ownsExistingResource();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

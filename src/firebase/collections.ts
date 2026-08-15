@@ -6,6 +6,7 @@ export const collections = {
   cardPurchases: "cardPurchases",
   cards: "cards",
   categories: "categories",
+  monthlySummaries: "monthlySummaries",
   recurringTransactions: "recurringTransactions",
   transactions: "transactions",
   users: "users",

@@ -8,11 +8,12 @@ const defaultPreferences = {
   locale: "pt-BR" as const,
   currency: "BRL" as const,
   timeZone: "America/Sao_Paulo" as const,
+  financialMonthStartDay: 1,
 };
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   const snapshot = await getDoc(doc(firestore, collections.users, userId));
-  return snapshot.exists() ? (snapshot.data() as UserProfile) : null;
+  return snapshot.exists() ? normalizeUserProfile(snapshot.data() as Partial<UserProfile>) : null;
 }
 
 export async function ensureUserProfile(user: User): Promise<UserProfile> {
@@ -26,6 +27,18 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
   return profile;
 }
 
+function normalizeUserProfile(profile: Partial<UserProfile>): UserProfile {
+  return {
+    id: profile.id ?? "",
+    email: profile.email ?? null,
+    displayName: profile.displayName ?? null,
+    locale: "pt-BR",
+    currency: "BRL",
+    timeZone: "America/Sao_Paulo",
+    financialMonthStartDay: profile.financialMonthStartDay ?? 1,
+  };
+}
+
 export async function updateUserProfile(userId: string, changes: UserProfileUpdate) {
   await updateDoc(doc(firestore, collections.users, userId), changes);
 }
@@ -33,7 +46,7 @@ export async function updateUserProfile(userId: string, changes: UserProfileUpda
 export async function deleteUserAccount() {
   const user = firebaseAuth.currentUser;
   if (!user) return;
-  const privateCollections = [collections.accounts, collections.transactions, "cards", "budgets", "goals"];
+  const privateCollections = [collections.accounts, collections.transactions, collections.monthlySummaries, collections.recurringTransactions, "cards", "budgets", "goals"];
   for (const collectionName of privateCollections) {
     const snapshot = await getDocs(query(collection(firestore, collectionName), where("userId", "==", user.uid)));
     if (snapshot.empty) continue;

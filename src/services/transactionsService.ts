@@ -19,6 +19,7 @@ import type { Account } from "../types/account";
 import type { Category } from "../types/category";
 import type { Transaction, TransactionFilters, TransactionType } from "../types/transaction";
 import { createConverter } from "./firestoreConverters";
+import { applyMonthlySummaryDelta } from "./monthlySummariesService";
 
 const transactionConverter = createConverter<Transaction>();
 const accountConverter = createConverter<Account>();
@@ -90,6 +91,7 @@ export async function createTransaction(userId: string, input: TransactionInput,
 
   await runTransaction(firestore, async (dbTransaction) => {
     await applyBalanceDeltas(dbTransaction, balanceDeltas(input));
+    applyMonthlySummaryDelta(dbTransaction, userId, { ...input, categoryId: input.type === "TRANSFER" ? undefined : input.categoryId });
     dbTransaction.set(transactionRef, payload);
   });
 }
@@ -103,6 +105,8 @@ export async function updateTransaction(transactionId: string, input: Transactio
     if (!snapshot.exists()) throw new Error("Lancamento nao encontrado.");
     const previous = snapshot.data() as Transaction;
     await applyBalanceDeltas(dbTransaction, [...reverseBalanceDeltas(previous), ...balanceDeltas(input)]);
+    applyMonthlySummaryDelta(dbTransaction, userId, previous, -1);
+    applyMonthlySummaryDelta(dbTransaction, userId, { ...input, categoryId: input.type === "TRANSFER" ? undefined : input.categoryId });
     dbTransaction.update(transactionRef, {
       ...toFirestorePayload(userId, input, Timestamp.now(), false),
     });
@@ -115,7 +119,9 @@ export async function deleteTransaction(transactionId: string) {
   await runTransaction(firestore, async (dbTransaction) => {
     const snapshot = await dbTransaction.get(transactionRef);
     if (!snapshot.exists()) return;
-    await applyBalanceDeltas(dbTransaction, reverseBalanceDeltas(snapshot.data() as Transaction));
+    const previous = snapshot.data() as Transaction;
+    await applyBalanceDeltas(dbTransaction, reverseBalanceDeltas(previous));
+    applyMonthlySummaryDelta(dbTransaction, previous.userId, previous, -1);
     dbTransaction.delete(transactionRef);
   });
 }

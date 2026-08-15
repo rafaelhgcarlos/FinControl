@@ -1,5 +1,5 @@
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { useCallback, useContext, useEffect, useMemo, useState, createContext, type PropsWithChildren } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState, createContext, type Context, type PropsWithChildren } from "react";
 import { firebaseAuth } from "../firebase/config";
 import { ensureDefaultCategories } from "../services/categoriesService";
 import { getUserProfile, ensureUserProfile, updateUserProfile } from "../services/userService";
@@ -13,7 +13,10 @@ type AuthContextValue = {
   saveProfile: (changes: UserProfileUpdate) => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const authContextKey = "__fincontrol_auth_context__";
+const globalAuthContext = globalThis as typeof globalThis & { [authContextKey]?: Context<AuthContextValue | undefined> };
+const AuthContext = globalAuthContext[authContextKey] ?? createContext<AuthContextValue | undefined>(undefined);
+globalAuthContext[authContextKey] = AuthContext;
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(null);

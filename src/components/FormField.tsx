@@ -9,12 +9,12 @@ type FormFieldProps = PropsWithChildren<{
 
 export function FormField({ children, error, hint, id, label }: FormFieldProps) {
   return (
-    <div>
-      <label className="block text-sm font-medium text-slate-800 dark:text-slate-200" htmlFor={id}>
+    <div className="min-w-0">
+      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300" htmlFor={id}>
         {label}
       </label>
-      <div className="mt-1">{children}</div>
-      {hint ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p> : null}
+      <div className="mt-1.5">{children}</div>
+      {hint ? <p className="mt-1.5 text-xs leading-5 text-slate-500 dark:text-slate-400">{hint}</p> : null}
       {error ? (
         <p className="mt-1 text-xs font-medium text-rose-700 dark:text-rose-300" id={`${id}-error`}>
           {error}

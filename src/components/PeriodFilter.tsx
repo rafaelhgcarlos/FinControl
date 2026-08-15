@@ -20,13 +20,13 @@ type PeriodFilterProps = {
 export function PeriodFilter({ onCustomChange, onPresetChange, period }: PeriodFilterProps) {
   return (
     <div className="flex w-full flex-col gap-3 lg:w-auto">
-      <div className="grid grid-cols-2 gap-2 sm:flex">
+      <div className="scrollbar-none flex w-full gap-1 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:w-auto">
         {presets.map((preset) => (
           <Button
             key={preset.value}
-            className="min-h-9 px-3"
+            className={`min-h-9 shrink-0 border-0 px-3 shadow-none ${period.preset === preset.value ? "" : "bg-transparent"}`}
             onClick={() => onPresetChange(preset.value)}
-            variant={period.preset === preset.value ? "primary" : "secondary"}
+            variant={period.preset === preset.value ? "primary" : "ghost"}
           >
             {preset.label}
           </Button>

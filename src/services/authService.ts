@@ -1,8 +1,11 @@
 import {
+  EmailAuthProvider,
   createUserWithEmailAndPassword,
+  reauthenticateWithCredential,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
   updateProfile,
 } from "firebase/auth";
 import { firebaseAuth } from "../firebase/config";
@@ -24,6 +27,15 @@ export function resetPassword(email: string) {
   return sendPasswordResetEmail(firebaseAuth, email);
 }
 
+export async function changePassword(currentPassword: string, nextPassword: string) {
+  const user = firebaseAuth.currentUser;
+  if (!user?.email) throw new Error("Entre novamente para alterar a senha.");
+  if (nextPassword.length < 6) throw new Error("A nova senha precisa ter pelo menos 6 caracteres.");
+  const credential = EmailAuthProvider.credential(user.email, currentPassword);
+  await reauthenticateWithCredential(user, credential);
+  await updatePassword(user, nextPassword);
+}
+
 export function logout() {
   return signOut(firebaseAuth);
 }
@@ -39,6 +51,7 @@ export function authErrorMessage(error: unknown) {
     "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
     "auth/requires-recent-login": "Por segurança, entre novamente antes de excluir sua conta.",
   };
+  if (code === "auth/wrong-password" || code === "auth/invalid-login-credentials") return "Senha atual incorreta.";
   if (code === "permission-denied") return "O Firestore recusou o acesso. Publique as regras do projeto Firebase e tente novamente.";
   return messages[code] ?? "Não foi possível concluir a operação. Tente novamente.";
 }

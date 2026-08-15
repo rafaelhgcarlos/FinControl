@@ -59,6 +59,14 @@
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "nextOccurrenceDate", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "monthlySummaries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "monthKey", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

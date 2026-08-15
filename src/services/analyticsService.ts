@@ -1,14 +1,19 @@
+import { FirebaseError } from "firebase/app";
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { firestore } from "../firebase/config";
 import type { Account } from "../types/account";
 import type { Category } from "../types/category";
 import type { CardInvoice, CardPurchase, CreditCard } from "../types/creditCard";
+import type { MonthlySummary } from "../types/monthlySummary";
 import type { Transaction } from "../types/transaction";
 import { listAccounts } from "./accountsService";
 import { listCards, listInvoices, listPurchases } from "./cardsService";
 import { listCategories } from "./categoriesService";
+import { listMonthlySummaries } from "./monthlySummariesService";
+import { listRecurringTransactions } from "./recurringTransactionsService";
 import { listTransactionsPage } from "./transactionsService";
-import { endOfDay, endOfMonth, endOfWeek, endOfYear, monthShortLabel, startOfDay, startOfMonth, startOfWeek, startOfYear } from "../utils/date";
+import { buildFinancialAlerts, type FinancialAlert } from "../business/alerts";
+import { endOfDay, endOfFinancialMonth, endOfMonth, endOfWeek, endOfYear, monthKey, monthShortLabel, startOfDay, startOfFinancialMonth, startOfMonth, startOfWeek, startOfYear } from "../utils/date";
 
 export type PeriodPreset = "today" | "week" | "month" | "year" | "custom";
 
@@ -51,7 +56,7 @@ export type FinancialAnalytics = {
   timeSeries: ChartPoint[];
   monthlyEvolution: ChartPoint[];
   upcomingExpenses: Transaction[];
-  alerts: string[];
+  alerts: FinancialAlert[];
   goalProgress: GoalProgress[];
 };
 
@@ -87,14 +92,15 @@ type GoalSnapshot = {
   name?: string;
   targetAmountInCents?: number;
   currentAmountInCents?: number;
+  deadline?: Date;
   status?: string;
 };
 
-export function getDefaultDashboardPeriod(): DashboardPeriod {
-  return resolvePeriod("month");
+export function getDefaultDashboardPeriod(financialMonthStartDay = 1): DashboardPeriod {
+  return resolvePeriod("month", undefined, undefined, financialMonthStartDay);
 }
 
-export function resolvePeriod(preset: PeriodPreset, customStart?: Date, customEnd?: Date): DashboardPeriod {
+export function resolvePeriod(preset: PeriodPreset, customStart?: Date, customEnd?: Date, financialMonthStartDay = 1): DashboardPeriod {
   const now = new Date();
   if (preset === "today") return { preset, startDate: startOfDay(now), endDate: endOfDay(now) };
   if (preset === "week") return { preset, startDate: startOfWeek(now), endDate: endOfWeek(now) };
@@ -106,32 +112,38 @@ export function resolvePeriod(preset: PeriodPreset, customStart?: Date, customEn
       endDate: customEnd ? endOfDay(customEnd) : endOfMonth(now),
     };
   }
-  return { preset: "month", startDate: startOfMonth(now), endDate: endOfMonth(now) };
+  return { preset: "month", startDate: startOfFinancialMonth(now, financialMonthStartDay), endDate: endOfFinancialMonth(now, financialMonthStartDay) };
 }
 
 export async function getFinancialAnalytics(userId: string, period: DashboardPeriod): Promise<FinancialAnalytics> {
-  const [accounts, categories, periodPage, yearPage, budgets, goals, cards, invoices, cardPurchases] = await Promise.all([
+  const [accounts, categories, periodPage, budgets, goals, cards, invoices, cardPurchases, summaries, yearSummaries, recurrences] = await Promise.all([
     listAccounts(userId),
     listCategories(userId),
-    listTransactionsPage(userId, { type: "ALL", startDate: period.startDate, endDate: period.endDate }, 500),
-    listTransactionsPage(userId, { type: "ALL", startDate: startOfYear(period.endDate), endDate: endOfYear(period.endDate) }, 1000),
+    listTransactionsPage(userId, { type: "ALL", startDate: period.startDate, endDate: period.endDate }, 100),
     listBudgetSnapshots(userId),
     listGoalSnapshots(userId),
     listCards(userId),
     listInvoices(userId),
     listPurchases(userId),
+    safeListMonthlySummaries(userId, monthKey(period.startDate), monthKey(period.endDate)),
+    safeListMonthlySummaries(userId, monthKey(startOfYear(period.endDate)), monthKey(endOfYear(period.endDate))),
+    safeListRecurringTransactions(userId),
   ]);
 
   const transactions = periodPage.items;
   const activeAccounts = accounts.filter((account) => account.status === "ACTIVE");
-  const incomeInCents = sumTransactions(transactions, "INCOME");
+  const summaryTotals = summarizeMonthly(summaries);
+  const incomeInCents = summaryTotals.incomeInCents || sumTransactions(transactions, "INCOME");
   const expenseTransactions = transactions.filter((transaction) => transaction.type === "EXPENSE");
   const periodCardPurchases = cardPurchases.filter((purchase) => purchase.purchaseDate >= period.startDate && purchase.purchaseDate <= period.endDate);
-  const cardExpenseInCents = periodCardPurchases.reduce((total, purchase) => total + purchase.amountInCents, 0);
-  const expenseInCents = expenseTransactions.reduce((total, transaction) => total + transaction.amountInCents, 0) + cardExpenseInCents;
+  const hasSummaries = summaries.length > 0;
+  const cardExpenseInCents = hasSummaries ? 0 : periodCardPurchases.reduce((total, purchase) => total + purchase.amountInCents, 0);
+  const expenseInCents = (summaryTotals.expenseInCents || expenseTransactions.reduce((total, transaction) => total + transaction.amountInCents, 0)) + cardExpenseInCents;
   const resultInCents = incomeInCents - expenseInCents;
-  const categorySpending = buildCategorySpending(expenseTransactions, categories, periodCardPurchases);
+  const categorySpending = buildCategorySpendingFromSummaries(summaryTotals.categorySpending, categories, expenseTransactions, hasSummaries ? [] : periodCardPurchases);
   const topExpenseCategory = categorySpending[0] ?? null;
+  const upcomingInvoices = buildUpcomingInvoices(invoices, cards);
+  const largestExpense = expenseTransactions.reduce<Transaction | null>((largest, transaction) => !largest || transaction.amountInCents > largest.amountInCents ? transaction : largest, null);
 
   return {
     accounts,
@@ -142,22 +154,56 @@ export async function getFinancialAnalytics(userId: string, period: DashboardPer
     expenseInCents,
     resultInCents,
     averageExpenseInCents: expenseTransactions.length ? Math.round(expenseInCents / expenseTransactions.length) : 0,
-    largestExpense: expenseTransactions.reduce<Transaction | null>((largest, transaction) => !largest || transaction.amountInCents > largest.amountInCents ? transaction : largest, null),
+    largestExpense,
     topExpenseCategory,
     savingsRate: incomeInCents > 0 ? (resultInCents / incomeInCents) * 100 : null,
     incomeCommitmentRate: incomeInCents > 0 ? (expenseInCents / incomeInCents) * 100 : null,
     categorySpending,
-    upcomingInvoices: buildUpcomingInvoices(invoices, cards),
-    upcomingInvoicesTotalInCents: buildUpcomingInvoices(invoices, cards).reduce((total, invoice) => total + invoice.amountInCents, 0),
-    timeSeries: buildTimeSeries(transactions, period),
-    monthlyEvolution: buildMonthlyEvolution(yearPage.items),
+    upcomingInvoices,
+    upcomingInvoicesTotalInCents: upcomingInvoices.reduce((total, invoice) => total + invoice.amountInCents, 0),
+    timeSeries: buildTimeSeriesFromSummaries(summaries, transactions, period),
+    monthlyEvolution: buildMonthlyEvolutionFromSummaries(yearSummaries),
     upcomingExpenses: transactions
       .filter((transaction) => transaction.type === "EXPENSE" && transaction.date >= startOfDay(new Date()))
       .sort((left, right) => left.date.getTime() - right.date.getTime())
       .slice(0, 5),
-    alerts: buildAlerts(activeAccounts, incomeInCents, expenseInCents, resultInCents, categorySpending, budgets),
+    alerts: buildFinancialAlerts({
+      accounts: activeAccounts,
+      budgets,
+      categorySpending,
+      expenseInCents,
+      incomeInCents,
+      invoices: invoices.map((invoice) => ({ ...invoice, cardName: cards.find((card) => card.id === invoice.cardId)?.name })),
+      recurrences,
+      goals,
+      largestExpense,
+    }),
     goalProgress: buildGoalProgress(goals),
   };
+}
+
+async function safeListMonthlySummaries(userId: string, startMonthKey: string, endMonthKey: string) {
+  try {
+    return await listMonthlySummaries(userId, startMonthKey, endMonthKey);
+  } catch (error) {
+    if (isOptionalAnalyticsQueryUnavailable(error)) return [];
+    throw error;
+  }
+}
+
+async function safeListRecurringTransactions(userId: string) {
+  try {
+    return await listRecurringTransactions(userId);
+  } catch (error) {
+    if (isOptionalAnalyticsQueryUnavailable(error)) return [];
+    throw error;
+  }
+}
+
+export function isOptionalAnalyticsQueryUnavailable(error: unknown) {
+  if (!(error instanceof FirebaseError)) return false;
+  const code = error.code.replace("firestore/", "");
+  return code === "permission-denied" || code === "failed-precondition";
 }
 
 async function listBudgetSnapshots(userId: string) {
@@ -201,6 +247,20 @@ function buildCategorySpending(expenses: Transaction[], categories: Category[], 
   return Array.from(byCategory.values()).sort((left, right) => right.amountInCents - left.amountInCents);
 }
 
+function buildCategorySpendingFromSummaries(summarySpending: Record<string, number>, categories: Category[], expenses: Transaction[], cardPurchases: CardPurchase[]) {
+  if (Object.keys(summarySpending).length === 0) return buildCategorySpending(expenses, categories, cardPurchases);
+  const fromSummary = Object.entries(summarySpending).map(([categoryId, amountInCents]) => {
+    const category = categories.find((item) => item.id === categoryId);
+    return {
+      categoryId,
+      name: category?.name ?? "Sem categoria",
+      color: category?.color ?? "#64748b",
+      amountInCents,
+    };
+  });
+  return buildCategorySpending([], categories, cardPurchases).concat(fromSummary).sort((left, right) => right.amountInCents - left.amountInCents);
+}
+
 function buildUpcomingInvoices(invoices: CardInvoice[], cards: CreditCard[]) {
   const today = startOfDay(new Date());
   return invoices
@@ -238,33 +298,35 @@ function buildTimeSeries(transactions: Transaction[], period: DashboardPeriod) {
   return Array.from(points.entries()).sort(([left], [right]) => left.localeCompare(right)).map(([, point]) => point);
 }
 
-function buildMonthlyEvolution(transactions: Transaction[]) {
-  const points = new Map<string, ChartPoint>();
-  for (const transaction of transactions) {
-    const key = `${transaction.date.getFullYear()}-${String(transaction.date.getMonth() + 1).padStart(2, "0")}`;
-    const point = points.get(key) ?? { label: monthShortLabel(transaction.date), incomeInCents: 0, expenseInCents: 0, balanceInCents: 0 };
-    if (transaction.type === "INCOME") point.incomeInCents += transaction.amountInCents;
-    if (transaction.type === "EXPENSE") point.expenseInCents += transaction.amountInCents;
-    point.balanceInCents += transaction.type === "INCOME" ? transaction.amountInCents : transaction.type === "EXPENSE" ? -transaction.amountInCents : 0;
-    points.set(key, point);
-  }
-  return Array.from(points.entries()).sort(([left], [right]) => left.localeCompare(right)).map(([, point]) => point);
+function summarizeMonthly(summaries: MonthlySummary[]) {
+  return summaries.reduce((total, summary) => {
+    total.incomeInCents += summary.incomeInCents;
+    total.expenseInCents += summary.expenseInCents;
+    Object.entries(summary.categorySpending ?? {}).forEach(([categoryId, amount]) => {
+      total.categorySpending[categoryId] = (total.categorySpending[categoryId] ?? 0) + amount;
+    });
+    return total;
+  }, { incomeInCents: 0, expenseInCents: 0, categorySpending: {} as Record<string, number> });
 }
 
-function buildAlerts(accounts: Account[], incomeInCents: number, expenseInCents: number, resultInCents: number, categorySpending: CategorySpending[], budgets: BudgetSnapshot[]) {
-  const alerts: string[] = [];
-  if (accounts.length === 0) alerts.push("Cadastre uma conta para iniciar o acompanhamento.");
-  if (accounts.some((account) => account.currentBalanceInCents < 0)) alerts.push("Existe conta ativa com saldo negativo.");
-  if (incomeInCents === 0) alerts.push("Nenhuma receita registrada no periodo.");
-  if (resultInCents < 0) alerts.push("Despesas acima das receitas no periodo selecionado.");
-  if (incomeInCents > 0 && expenseInCents / incomeInCents >= 0.8) alerts.push("Comprometimento de renda acima de 80%.");
-  if (categorySpending[0] && expenseInCents > 0 && categorySpending[0].amountInCents / expenseInCents >= 0.5) alerts.push(`Mais de 50% dos gastos estao em ${categorySpending[0].name}.`);
-  budgets.forEach((budget) => {
-    const budgetLimit = budget.limitInCents ?? 0;
-    const spent = budget.spentInCents ?? categorySpending.find((item) => item.categoryId === budget.categoryId)?.amountInCents ?? 0;
-    if (budgetLimit > 0 && spent / budgetLimit >= 0.9) alerts.push(`Orcamento ${budget.name ?? "do periodo"} acima de 90%.`);
-  });
-  return Array.from(new Set(alerts)).slice(0, 5);
+function buildTimeSeriesFromSummaries(summaries: MonthlySummary[], transactions: Transaction[], period: DashboardPeriod) {
+  if (summaries.length === 0) return buildTimeSeries(transactions, period);
+  return summaries.map((summary) => ({
+    label: summary.monthKey.slice(5),
+    incomeInCents: summary.incomeInCents,
+    expenseInCents: summary.expenseInCents,
+    balanceInCents: summary.incomeInCents - summary.expenseInCents,
+  }));
+}
+
+function buildMonthlyEvolutionFromSummaries(summaries: MonthlySummary[]) {
+  if (summaries.length === 0) return [];
+  return summaries.map((summary) => ({
+    label: summary.monthKey.slice(5),
+    incomeInCents: summary.incomeInCents,
+    expenseInCents: summary.expenseInCents,
+    balanceInCents: summary.incomeInCents - summary.expenseInCents,
+  }));
 }
 
 function buildGoalProgress(goals: Array<GoalSnapshot & { id: string }>): GoalProgress[] {

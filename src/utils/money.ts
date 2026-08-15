@@ -8,6 +8,12 @@ export function formatCurrencyFromCents(valueInCents: number) {
   return currencyFormatter.format(valueInCents / 100);
 }
 
+export function formatSignedCurrencyFromCents(valueInCents: number, sign: "income" | "expense" | "neutral") {
+  assertIntegerCents(valueInCents);
+  if (sign === "neutral") return formatCurrencyFromCents(valueInCents);
+  return `${sign === "income" ? "+" : "-"}${formatCurrencyFromCents(Math.abs(valueInCents))}`;
+}
+
 export function parseCurrencyToCents(value: string) {
   const digits = value.replace(/\D/g, "");
   if (!digits) return 0;

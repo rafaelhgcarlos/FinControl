@@ -5,6 +5,7 @@ export type UserProfile = {
   locale: "pt-BR";
   currency: "BRL";
   timeZone: "America/Sao_Paulo";
+  financialMonthStartDay: number;
 };
 
-export type UserProfileUpdate = Partial<Pick<UserProfile, "displayName" | "currency" | "timeZone">>;
+export type UserProfileUpdate = Partial<Pick<UserProfile, "displayName" | "currency" | "timeZone" | "financialMonthStartDay">>;

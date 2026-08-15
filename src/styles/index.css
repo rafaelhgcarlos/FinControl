@@ -5,6 +5,7 @@
 @layer base {
   :root {
     color-scheme: light;
+    font-synthesis: none;
   }
 
   .dark {
@@ -12,10 +13,37 @@
   }
 
   body {
-    @apply min-h-screen antialiased;
+    @apply min-h-screen bg-[#f4f6f8] text-slate-950 antialiased dark:bg-[#0b0f14] dark:text-slate-50;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    @apply bg-emerald-200 text-emerald-950 dark:bg-emerald-800 dark:text-white;
   }
 
   :focus-visible {
     @apply outline-none ring-2 ring-emerald-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

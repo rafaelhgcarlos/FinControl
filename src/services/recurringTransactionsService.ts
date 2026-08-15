@@ -19,6 +19,7 @@ import type { CreditCard } from "../types/creditCard";
 import type { RecurringFrequency, RecurringStatus, RecurringTargetType, RecurringTransaction, RecurringTransactionType } from "../types/recurringTransaction";
 import { createCardPurchase } from "./cardsService";
 import { createConverter } from "./firestoreConverters";
+import { applyMonthlySummaryDelta } from "./monthlySummariesService";
 import { balanceDeltas, type TransactionInput } from "./transactionsService";
 
 const recurringConverter = createConverter<RecurringTransaction>();
@@ -206,6 +207,7 @@ async function processAccountOccurrence(userId: string, recurrence: RecurringTra
         updatedAt: now,
       });
     });
+    applyMonthlySummaryDelta(dbTransaction, userId, input);
     dbTransaction.set(transactionRef, {
       userId,
       amountInCents: input.amountInCents,

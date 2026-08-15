@@ -1,4 +1,4 @@
-import { Check, LogOut, Save, Trash2 } from "lucide-react";
+import { Check, KeyRound, LogOut, Save, Trash2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/Button";
@@ -10,7 +10,7 @@ import { Select } from "../components/Select";
 import { Toast } from "../components/Toast";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme, type ThemePreference } from "../contexts/ThemeContext";
-import { logout } from "../services/authService";
+import { changePassword, logout } from "../services/authService";
 import { deleteUserAccount } from "../services/userService";
 import { getFriendlyFirebaseError } from "../utils/firebaseErrors";
 
@@ -21,6 +21,10 @@ export function SettingsPage() {
   const [name, setName] = useState("");
   const [currency, setCurrency] = useState("BRL");
   const [timeZone, setTimeZone] = useState("America/Sao_Paulo");
+  const [financialMonthStartDay, setFinancialMonthStartDay] = useState(1);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [nextPassword, setNextPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -29,6 +33,7 @@ export function SettingsPage() {
     setName(profile?.displayName ?? "");
     setCurrency(profile?.currency ?? "BRL");
     setTimeZone(profile?.timeZone ?? "America/Sao_Paulo");
+    setFinancialMonthStartDay(profile?.financialMonthStartDay ?? 1);
   }, [profile]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -37,7 +42,7 @@ export function SettingsPage() {
     setSaved(false);
     setMessage(null);
     try {
-      await saveProfile({ displayName: name.trim() || null, currency: currency as "BRL", timeZone: timeZone as "America/Sao_Paulo" });
+      await saveProfile({ displayName: name.trim() || null, currency: currency as "BRL", timeZone: timeZone as "America/Sao_Paulo", financialMonthStartDay });
       setSaved(true);
     } catch (error) {
       setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar suas configuracoes."));
@@ -49,6 +54,24 @@ export function SettingsPage() {
   async function signOut() {
     await logout();
     navigate("/login", { replace: true });
+  }
+
+  async function submitPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage(null);
+    try {
+      if (nextPassword !== confirmPassword) throw new Error("A confirmacao da senha nao confere.");
+      await changePassword(currentPassword, nextPassword);
+      setCurrentPassword("");
+      setNextPassword("");
+      setConfirmPassword("");
+      setMessage("Senha alterada com sucesso.");
+    } catch (error) {
+      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel alterar a senha."));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function deleteAccount() {
@@ -100,6 +123,9 @@ export function SettingsPage() {
                 </Select>
               </FormField>
             </div>
+            <FormField id="financial-month-start" label="Primeiro dia do mes financeiro">
+              <Input id="financial-month-start" min={1} max={28} type="number" value={financialMonthStartDay} onChange={(event) => setFinancialMonthStartDay(Number(event.target.value))} />
+            </FormField>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button disabled={busy} type="submit"><Save className="h-4 w-4" aria-hidden="true" />{busy ? "Salvando..." : "Salvar alteracoes"}</Button>
               {saved ? <span className="flex items-center gap-1 text-sm text-emerald-700 dark:text-emerald-300"><Check className="h-4 w-4" aria-hidden="true" />Salvo</span> : null}
@@ -109,6 +135,18 @@ export function SettingsPage() {
         <Card>
           <h2 className="text-base font-semibold">Acesso</h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Firebase Authentication protege o login. As regras do Firestore isolam os dados por usuario.</p>
+          <form className="mt-5 grid gap-3" onSubmit={(event) => void submitPassword(event)}>
+            <FormField id="current-password" label="Senha atual">
+              <Input id="current-password" autoComplete="current-password" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} />
+            </FormField>
+            <FormField id="next-password" label="Nova senha">
+              <Input id="next-password" autoComplete="new-password" minLength={6} type="password" value={nextPassword} onChange={(event) => setNextPassword(event.target.value)} />
+            </FormField>
+            <FormField id="confirm-password" label="Confirmar nova senha">
+              <Input id="confirm-password" autoComplete="new-password" minLength={6} type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+            </FormField>
+            <Button disabled={busy || !currentPassword || !nextPassword || !confirmPassword} type="submit" variant="secondary"><KeyRound className="h-4 w-4" aria-hidden="true" />Alterar senha</Button>
+          </form>
           <div className="mt-5 grid gap-2">
             <Button className="w-full justify-start" onClick={() => void signOut()} variant="secondary"><LogOut className="h-4 w-4" aria-hidden="true" />Sair da conta</Button>
             <Button className="w-full justify-start" disabled={busy} onClick={() => void deleteAccount()} variant="danger"><Trash2 className="h-4 w-4" aria-hidden="true" />Excluir conta</Button>

@@ -98,6 +98,19 @@ service cloud.firestore {
         && categoryAcceptsTransaction(request.resource.data.categoryId, request.resource.data.type);
     }
 
+    function validMonthlySummary() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'monthKey', 'incomeInCents', 'expenseInCents', 'transactionCount', 'categorySpending'];
+      let optional = ['id'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.monthKey is string
+        && request.resource.data.incomeInCents is int
+        && request.resource.data.incomeInCents >= 0
+        && request.resource.data.expenseInCents is int
+        && request.resource.data.expenseInCents >= 0
+        && request.resource.data.transactionCount is int
+        && request.resource.data.categorySpending is map;
+    }
+
     function accountBelongsToUser(accountId) {
       return exists(/databases/$(database)/documents/accounts/$(accountId))
         && get(/databases/$(database)/documents/accounts/$(accountId)).data.userId == request.auth.uid;
@@ -260,23 +273,30 @@ service cloud.firestore {
     }
 
     function validUserProfileCreate(userId) {
-      return request.resource.data.keys().hasAll(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone'])
-        && request.resource.data.keys().hasOnly(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone'])
+      return request.resource.data.keys().hasAll(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone', 'financialMonthStartDay'])
+        && request.resource.data.keys().hasOnly(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone', 'financialMonthStartDay'])
         && request.resource.data.id == userId
         && (request.resource.data.email is string || request.resource.data.email == null)
         && (request.resource.data.displayName is string || request.resource.data.displayName == null)
         && request.resource.data.locale == 'pt-BR'
         && request.resource.data.currency == 'BRL'
-        && request.resource.data.timeZone == 'America/Sao_Paulo';
+        && request.resource.data.timeZone == 'America/Sao_Paulo'
+        && request.resource.data.financialMonthStartDay is int
+        && request.resource.data.financialMonthStartDay >= 1
+        && request.resource.data.financialMonthStartDay <= 28;
     }
 
     function validUserProfileUpdate(userId) {
       return resource.data.id == userId
         && request.resource.data.id == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'currency', 'timeZone'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'currency', 'timeZone', 'financialMonthStartDay'])
         && (!('displayName' in request.resource.data) || request.resource.data.displayName is string || request.resource.data.displayName == null)
         && (!('currency' in request.resource.data) || request.resource.data.currency == 'BRL')
-        && (!('timeZone' in request.resource.data) || request.resource.data.timeZone == 'America/Sao_Paulo');
+        && (!('timeZone' in request.resource.data) || request.resource.data.timeZone == 'America/Sao_Paulo')
+        && (!('financialMonthStartDay' in request.resource.data)
+          || (request.resource.data.financialMonthStartDay is int
+            && request.resource.data.financialMonthStartDay >= 1
+            && request.resource.data.financialMonthStartDay <= 28));
     }
 
     match /users/{userId} {
@@ -316,6 +336,13 @@ service cloud.firestore {
       allow create: if ownsIncomingResource() && validRecurringTransaction();
       allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validRecurringTransaction();
       allow delete: if false;
+    }
+
+    match /monthlySummaries/{documentId} {
+      allow read: if ownsExistingResource();
+      allow create: if ownsIncomingResource() && validMonthlySummary();
+      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validMonthlySummary();
+      allow delete: if ownsExistingResource();
     }
 
     match /cards/{documentId} {

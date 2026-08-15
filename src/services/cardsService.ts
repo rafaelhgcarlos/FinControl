@@ -21,6 +21,7 @@ import type { Category } from "../types/category";
 import type { CardInstallment, CardInvoice, CardPayment, CardPurchase, CreditCard, CreditCardBrand, CreditCardStatus } from "../types/creditCard";
 import { addMonths, buildInvoiceDates, computeInvoiceStatus, normalizeInvoice, resolveInvoiceCycleDate, splitPurchaseIntoInstallments, sumInstallmentsByInvoice } from "./cardsCalculations";
 import { createConverter } from "./firestoreConverters";
+import { applyMonthlySummaryDelta } from "./monthlySummariesService";
 
 const cardConverter = createConverter<CreditCard>();
 const purchaseConverter = createConverter<CardPurchase>();
@@ -242,6 +243,12 @@ export async function createCardPurchase(userId: string, input: CardPurchaseInpu
       committedLimitInCents: currentCard.committedLimitInCents + input.amountInCents,
       updatedAt: now,
     });
+    applyMonthlySummaryDelta(transaction, userId, {
+      amountInCents: input.amountInCents,
+      categoryId: input.categoryId,
+      date: input.purchaseDate,
+      type: "EXPENSE",
+    });
 
     invoicePayloads.forEach((invoice, index) => {
       const invoiceRef = doc(firestore, collections.cardInvoices, invoice.id);
@@ -319,6 +326,18 @@ export async function updateCardPurchase(userId: string, purchaseId: string, inp
       committedLimitInCents: Math.max(0, card.committedLimitInCents + committedDelta),
       updatedAt: now,
     });
+    applyMonthlySummaryDelta(transaction, userId, {
+      amountInCents: previousPurchase.amountInCents,
+      categoryId: previousPurchase.categoryId,
+      date: previousPurchase.purchaseDate,
+      type: "EXPENSE",
+    }, -1);
+    applyMonthlySummaryDelta(transaction, userId, {
+      amountInCents: input.amountInCents,
+      categoryId: input.categoryId,
+      date: input.purchaseDate,
+      type: "EXPENSE",
+    });
 
     applyInvoiceDeltas(transaction, invoiceRefs, invoiceSnapshots, previousInstallments, nextInstallments, userId, card, now);
     nextInstallments.forEach((installment) => {
@@ -367,6 +386,12 @@ export async function deleteCardPurchase(userId: string, purchaseId: string) {
       committedLimitInCents: Math.max(0, card.committedLimitInCents - purchase.amountInCents),
       updatedAt: now,
     });
+    applyMonthlySummaryDelta(transaction, userId, {
+      amountInCents: purchase.amountInCents,
+      categoryId: purchase.categoryId,
+      date: purchase.purchaseDate,
+      type: "EXPENSE",
+    }, -1);
     applyInvoiceDeltas(transaction, invoiceRefs, invoiceSnapshots, installments, [], userId, card, now);
     installmentRefs.forEach((installmentRef) => transaction.delete(installmentRef));
     transaction.delete(purchaseRef);

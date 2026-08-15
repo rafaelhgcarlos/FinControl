@@ -11,15 +11,17 @@ import { StatCard } from "../components/StatCard";
 import { Table } from "../components/Table";
 import { useAuth } from "../contexts/AuthContext";
 import { getDefaultDashboardPeriod, getFinancialAnalytics, resolvePeriod, type DashboardPeriod, type FinancialAnalytics, type PeriodPreset } from "../services/analyticsService";
+import { rebuildMonthlySummaries } from "../services/monthlySummariesService";
 import { formatDatePtBr } from "../utils/date";
 import { getFriendlyFirebaseError } from "../utils/firebaseErrors";
-import { formatCurrencyFromCents } from "../utils/money";
+import { formatCurrencyFromCents, formatSignedCurrencyFromCents } from "../utils/money";
 
 export function ReportsPage() {
   const { user } = useAuth();
   const [period, setPeriod] = useState<DashboardPeriod>(getDefaultDashboardPeriod);
   const [analytics, setAnalytics] = useState<FinancialAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reconciling, setReconciling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -68,6 +70,20 @@ export function ReportsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function reconcileSummaries() {
+    if (!user) return;
+    setReconciling(true);
+    try {
+      await rebuildMonthlySummaries(user.uid, period.startDate, period.endDate);
+      await loadData();
+      setError(null);
+    } catch (reason) {
+      setError(getFriendlyFirebaseError(reason, "Nao foi possivel reconciliar os resumos."));
+    } finally {
+      setReconciling(false);
+    }
+  }
+
   const indicators = analytics ? [
     { label: "Receita total", value: formatCurrencyFromCents(analytics.incomeInCents), icon: TrendingUp },
     { label: "Despesa total", value: formatCurrencyFromCents(analytics.expenseInCents), icon: ReceiptText },
@@ -85,7 +101,7 @@ export function ReportsPage() {
         eyebrow={`${formatDatePtBr(period.startDate)} - ${formatDatePtBr(period.endDate)}`}
         title="Relatorios"
         description="Analise receitas, despesas, categorias e evolucao financeira por periodo."
-        action={<div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-start"><PeriodFilter period={period} onPresetChange={handlePresetChange} onCustomChange={handleCustomChange} /><div className="flex gap-2"><Button disabled={!analytics || analytics.transactions.length === 0} onClick={exportCsv} variant="secondary">CSV</Button><Button disabled={!analytics} onClick={() => window.print()} variant="secondary">PDF</Button></div></div>}
+        action={<div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-start"><PeriodFilter period={period} onPresetChange={handlePresetChange} onCustomChange={handleCustomChange} /><div className="flex gap-2"><Button disabled={reconciling || !analytics} onClick={() => void reconcileSummaries()} variant="secondary">{reconciling ? "Reconciliando..." : "Reconciliar"}</Button><Button disabled={!analytics || analytics.transactions.length === 0} onClick={exportCsv} variant="secondary">CSV</Button><Button disabled={!analytics} onClick={() => window.print()} variant="secondary">PDF</Button></div></div>}
       />
       {error ? <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-100">{error}</div> : null}
       {loading ? <LoadingState label="Carregando relatorios" /> : analytics ? (
@@ -126,7 +142,7 @@ export function ReportsPage() {
                         <td className="px-3 py-3">{formatDatePtBr(transaction.date)}</td>
                         <td className="px-3 py-3"><Badge variant={transaction.type === "INCOME" ? "success" : transaction.type === "EXPENSE" ? "danger" : "neutral"}>{transaction.type}</Badge></td>
                         <td className="px-3 py-3">{transaction.description || "-"}</td>
-                        <td className="px-3 py-3 font-medium">{formatCurrencyFromCents(transaction.amountInCents)}</td>
+                        <td className={`px-3 py-3 font-medium ${transaction.type === "INCOME" ? "text-emerald-700 dark:text-emerald-300" : transaction.type === "EXPENSE" ? "text-rose-700 dark:text-rose-300" : ""}`}>{formatSignedCurrencyFromCents(transaction.amountInCents, transaction.type === "INCOME" ? "income" : transaction.type === "EXPENSE" ? "expense" : "neutral")}</td>
                       </tr>
                     ))}
                   </tbody>

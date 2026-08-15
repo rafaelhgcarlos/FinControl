@@ -15,6 +15,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   query,
   runTransaction,
   setDoc,
@@ -276,12 +277,15 @@ describe("Firestore security rules", () => {
       locale: "pt-BR",
       currency: "BRL",
       timeZone: "America/Sao_Paulo",
+      financialMonthStartDay: 1,
     };
 
     await assertSucceeds(setDoc(doc(dbA, "users", userA), profileA));
     await assertFails(getDoc(doc(dbB, "users", userA)));
     await assertFails(setDoc(doc(dbA, "users", userB), { ...profileA, id: userB }));
     await assertFails(updateDoc(doc(dbA, "users", userA), { id: userB }));
+    await assertSucceeds(updateDoc(doc(dbA, "users", userA), { financialMonthStartDay: 10 }));
+    await assertFails(updateDoc(doc(dbA, "users", userA), { financialMonthStartDay: 31 }));
 
     const storedProfile = await getDoc(doc(dbA, "users", userA));
     expect(storedProfile.exists()).toBe(true);
@@ -533,5 +537,27 @@ describe("Firestore security rules", () => {
     }));
     await assertFails(getDoc(doc(dbB, "recurringTransactions", "rent")));
     await assertFails(deleteDoc(doc(dbA, "recurringTransactions", "rent")));
+  });
+
+  it("allows monthly summary increments only for the authenticated owner", async () => {
+    const dbA = authedDb(userA);
+    const dbB = authedDb(userB);
+    const summaryRef = doc(dbA, "monthlySummaries", `${userA}_2026-08`);
+
+    await assertSucceeds(setDoc(summaryRef, {
+      userId: userA,
+      monthKey: "2026-08",
+      incomeInCents: increment(0),
+      expenseInCents: increment(1111),
+      transactionCount: increment(1),
+      categorySpending: {
+        [`${userA}_EXPENSE_compras`]: increment(1111),
+      },
+      createdAt: now,
+      updatedAt: now,
+    }, { merge: true }));
+
+    expect((await getDoc(summaryRef)).data()?.categorySpending[`${userA}_EXPENSE_compras`]).toBe(1111);
+    await assertFails(getDoc(doc(dbB, "monthlySummaries", `${userA}_2026-08`)));
   });
 });

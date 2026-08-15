@@ -55,32 +55,30 @@ export async function listTransactionsPage(userId: string, filters: TransactionF
   if (filters.startDate) constraints.push(where("date", ">=", Timestamp.fromDate(filters.startDate)));
   if (filters.endDate) constraints.push(where("date", "<=", Timestamp.fromDate(filters.endDate)));
   constraints.push(orderBy("date", "desc"));
-  if (cursor) constraints.push(startAfter(cursor));
-  constraints.push(limit(pageSize));
+  const collectionRef = collection(firestore, collections.transactions).withConverter(transactionConverter);
+  const requiresClientFiltering = hasClientSideFilters(filters);
+  let pageCursor = cursor ?? null;
+  let lastScannedDoc: DocumentSnapshot | null = cursor ?? null;
+  let hasMore = false;
+  const items: Transaction[] = [];
 
-  const snapshot = await getDocs(query(collection(firestore, collections.transactions).withConverter(transactionConverter), ...constraints));
-  let items = snapshot.docs.map((item) => item.data());
+  // Firestore nao oferece busca parcial case-insensitive; filtros assim varrem paginas internas antes de expor a pagina ao usuario.
+  do {
+    const pageConstraints = [...constraints];
+    if (pageCursor) pageConstraints.push(startAfter(pageCursor));
+    pageConstraints.push(limit(pageSize));
 
-  if (filters.accountId) {
-    items = items.filter((item) => item.accountId === filters.accountId || item.destinationAccountId === filters.accountId);
-  }
-  if (filters.minAmountInCents !== undefined) {
-    const minAmountInCents = filters.minAmountInCents;
-    items = items.filter((item) => item.amountInCents >= minAmountInCents);
-  }
-  if (filters.maxAmountInCents !== undefined) {
-    const maxAmountInCents = filters.maxAmountInCents;
-    items = items.filter((item) => item.amountInCents <= maxAmountInCents);
-  }
-  if (filters.search?.trim()) {
-    const search = filters.search.trim().toLowerCase();
-    items = items.filter((item) => item.description?.toLowerCase().includes(search));
-  }
+    const snapshot = await getDocs(query(collectionRef, ...pageConstraints));
+    lastScannedDoc = snapshot.docs.at(-1) ?? lastScannedDoc;
+    pageCursor = lastScannedDoc;
+    items.push(...snapshot.docs.map((item) => item.data()).filter((item) => matchesClientSideFilters(item, filters)));
+    hasMore = snapshot.docs.length === pageSize;
+  } while (requiresClientFiltering && items.length < pageSize && hasMore);
 
   return {
-    items,
-    lastDoc: snapshot.docs.at(-1) ?? null,
-    hasMore: snapshot.docs.length === pageSize,
+    items: items.slice(0, pageSize),
+    lastDoc: lastScannedDoc,
+    hasMore,
   };
 }
 
@@ -165,7 +163,7 @@ type BalanceDelta = {
 
 type TransactionRunner = Parameters<Parameters<typeof runTransaction>[1]>[0];
 
-function balanceDeltas(input: TransactionInput | Transaction): BalanceDelta[] {
+export function balanceDeltas(input: TransactionInput | Transaction): BalanceDelta[] {
   if (input.type === "INCOME") return [{ accountId: input.accountId, deltaInCents: input.amountInCents }];
   if (input.type === "EXPENSE") return [{ accountId: input.accountId, deltaInCents: -input.amountInCents }];
   return [
@@ -174,7 +172,7 @@ function balanceDeltas(input: TransactionInput | Transaction): BalanceDelta[] {
   ].filter((delta) => delta.accountId);
 }
 
-function reverseBalanceDeltas(input: TransactionInput | Transaction) {
+export function reverseBalanceDeltas(input: TransactionInput | Transaction) {
   return balanceDeltas(input).map((delta) => ({ ...delta, deltaInCents: -delta.deltaInCents }));
 }
 
@@ -198,10 +196,25 @@ async function applyBalanceDeltas(dbTransaction: TransactionRunner, deltas: Bala
   }
 }
 
-function mergeBalanceDeltas(deltas: BalanceDelta[]) {
+export function mergeBalanceDeltas(deltas: BalanceDelta[]) {
   const byAccount = new Map<string, number>();
   for (const delta of deltas) {
     byAccount.set(delta.accountId, (byAccount.get(delta.accountId) ?? 0) + delta.deltaInCents);
   }
   return Array.from(byAccount.entries()).map(([accountId, deltaInCents]) => ({ accountId, deltaInCents }));
+}
+
+function hasClientSideFilters(filters: TransactionFilters) {
+  return Boolean(filters.accountId || filters.minAmountInCents !== undefined || filters.maxAmountInCents !== undefined || filters.search?.trim());
+}
+
+function matchesClientSideFilters(item: Transaction, filters: TransactionFilters) {
+  if (filters.accountId && item.accountId !== filters.accountId && item.destinationAccountId !== filters.accountId) return false;
+  if (filters.minAmountInCents !== undefined && item.amountInCents < filters.minAmountInCents) return false;
+  if (filters.maxAmountInCents !== undefined && item.amountInCents > filters.maxAmountInCents) return false;
+  if (filters.search?.trim()) {
+    const search = filters.search.trim().toLowerCase();
+    return Boolean(item.description?.toLowerCase().includes(search));
+  }
+  return true;
 }

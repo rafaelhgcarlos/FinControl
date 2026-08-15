@@ -566,13 +566,12 @@ function validatePurchaseInput(input: CardPurchaseInput, cards: CreditCard[], us
 }
 
 function buildInstallments(userId: string, purchaseId: string, input: CardPurchaseInput, card: CreditCard, now: Timestamp) {
-  const baseAmount = Math.floor(input.amountInCents / input.installmentsCount);
-  const remainder = input.amountInCents % input.installmentsCount;
+  const amounts = splitPurchaseIntoInstallments(input.amountInCents, input.installmentsCount);
   return Array.from({ length: input.installmentsCount }, (_, index) => {
     const dueDate = addMonths(resolveInvoiceCycleDate(input.firstInstallmentDate, card.closingDay), index);
     const invoice = buildInvoiceDates(dueDate, card.closingDay, card.dueDay);
     const installmentNumber = index + 1;
-    const amountInCents = baseAmount + (index === 0 ? remainder : 0);
+    const amountInCents = amounts[index];
     const id = `${purchaseId}_${installmentNumber}`;
     return {
       id,
@@ -595,6 +594,12 @@ function buildInstallments(userId: string, purchaseId: string, input: CardPurcha
       },
     };
   });
+}
+
+export function splitPurchaseIntoInstallments(amountInCents: number, installmentsCount: number) {
+  const baseAmount = Math.floor(amountInCents / installmentsCount);
+  const remainder = amountInCents % installmentsCount;
+  return Array.from({ length: installmentsCount }, (_, index) => baseAmount + (index === 0 ? remainder : 0));
 }
 
 function ensureEditableInstallments(installments: CardInstallment[]) {

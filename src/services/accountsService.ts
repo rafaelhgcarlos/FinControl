@@ -2,14 +2,20 @@ import {
   Timestamp,
   addDoc,
   collection,
+  documentId,
   doc,
   getDocs,
   limit,
+  orderBy,
   query,
   runTransaction,
+  startAfter,
   updateDoc,
   where,
+  type DocumentSnapshot,
   type Firestore,
+  type QueryConstraint,
+  type QuerySnapshot,
 } from "firebase/firestore";
 import { collections } from "../firebase/collections";
 import { firestore } from "../firebase/config";
@@ -39,12 +45,14 @@ export type AccountInput = {
   status: AccountStatus;
 };
 
-export function buildAccountsQuery(db: Firestore, userId: string, pageSize = 100) {
-  return query(
-    collection(db, collections.accounts).withConverter(accountConverter),
+export function buildAccountsQuery(db: Firestore, userId: string, pageSize = 100, cursor?: DocumentSnapshot | null) {
+  const constraints: QueryConstraint[] = [
     where("userId", "==", userId),
-    limit(pageSize),
-  );
+    orderBy(documentId()),
+  ];
+  if (cursor) constraints.push(startAfter(cursor));
+  constraints.push(limit(pageSize));
+  return query(collection(db, collections.accounts).withConverter(accountConverter), ...constraints);
 }
 
 export function buildActiveAccountsQuery(db: Firestore, userId: string, pageSize = 50) {
@@ -57,26 +65,37 @@ export function buildActiveAccountsQuery(db: Firestore, userId: string, pageSize
 }
 
 export async function listAccounts(userId: string) {
-  const snapshot = await getDocs(buildAccountsQuery(firestore, userId));
-  const accounts = snapshot.docs.map((item) => {
-    const account = normalizeAccount(item.id, item.data() as Partial<Account> & { balanceInCents?: number; archived?: boolean });
-    if (needsAccountMigration(item.data() as Partial<Account>)) {
-      void updateDoc(doc(firestore, collections.accounts, item.id), {
-        userId: account.userId,
-        createdAt: account.createdAt,
-        name: account.name,
-        initialBalanceInCents: account.initialBalanceInCents,
-        currentBalanceInCents: account.currentBalanceInCents,
-        type: account.type,
-        color: account.color,
-        icon: account.icon,
-        status: account.status,
-        updatedAt: Timestamp.now(),
-      }).catch(() => undefined);
-    }
-    return account;
-  });
-  return accounts.sort((left, right) => left.name.localeCompare(right.name, "pt-BR"));
+  const accounts: Account[] = [];
+  const migratedAccountIds = new Set<string>();
+  let cursor: DocumentSnapshot | null = null;
+  let hasMore = true;
+
+  while (hasMore) {
+    const snapshot: QuerySnapshot<Account> = await getDocs(buildAccountsQuery(firestore, userId, 100, cursor));
+    snapshot.docs.forEach((item: DocumentSnapshot<Account>) => {
+      const account = normalizeAccount(item.id, item.data() as Partial<Account> & { balanceInCents?: number; archived?: boolean });
+      if (needsAccountMigration(item.data() as Partial<Account>) && !migratedAccountIds.has(item.id)) {
+        migratedAccountIds.add(item.id);
+        void updateDoc(doc(firestore, collections.accounts, item.id), {
+          userId: account.userId,
+          createdAt: account.createdAt,
+          name: account.name,
+          initialBalanceInCents: account.initialBalanceInCents,
+          currentBalanceInCents: account.currentBalanceInCents,
+          type: account.type,
+          color: account.color,
+          icon: account.icon,
+          status: account.status,
+          updatedAt: Timestamp.now(),
+        }).catch(() => undefined);
+      }
+      accounts.push(account);
+    });
+    cursor = snapshot.docs.at(-1) ?? null;
+    hasMore = snapshot.docs.length === 100;
+  }
+
+  return accounts.sort((left, right) => left.name.localeCompare(right.name, "pt-BR") || left.id.localeCompare(right.id));
 }
 
 export async function createAccount(userId: string, input: AccountInput) {

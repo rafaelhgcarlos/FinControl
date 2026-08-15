@@ -18,7 +18,8 @@ import { collections } from "../firebase/collections";
 import { firestore } from "../firebase/config";
 import type { Account } from "../types/account";
 import type { Category } from "../types/category";
-import type { CardInstallment, CardInvoice, CardPayment, CardPurchase, CreditCard, CreditCardBrand, CreditCardStatus, InvoiceStatus } from "../types/creditCard";
+import type { CardInstallment, CardInvoice, CardPayment, CardPurchase, CreditCard, CreditCardBrand, CreditCardStatus } from "../types/creditCard";
+import { addMonths, buildInvoiceDates, computeInvoiceStatus, normalizeInvoice, resolveInvoiceCycleDate, splitPurchaseIntoInstallments, sumInstallmentsByInvoice } from "./cardsCalculations";
 import { createConverter } from "./firestoreConverters";
 
 const cardConverter = createConverter<CreditCard>();
@@ -596,12 +597,6 @@ function buildInstallments(userId: string, purchaseId: string, input: CardPurcha
   });
 }
 
-export function splitPurchaseIntoInstallments(amountInCents: number, installmentsCount: number) {
-  const baseAmount = Math.floor(amountInCents / installmentsCount);
-  const remainder = amountInCents % installmentsCount;
-  return Array.from({ length: installmentsCount }, (_, index) => baseAmount + (index === 0 ? remainder : 0));
-}
-
 function ensureEditableInstallments(installments: CardInstallment[]) {
   if (installments.some((installment) => installment.status === "PAID")) {
     throw new Error("Nao e possivel alterar parcelas ja pagas.");
@@ -660,12 +655,6 @@ function applyInvoiceDeltas(
   });
 }
 
-function sumInstallmentsByInvoice(installments: CardInstallment[]) {
-  const totals = new Map<string, number>();
-  installments.forEach((installment) => totals.set(installment.invoiceId, (totals.get(installment.invoiceId) ?? 0) + installment.amountInCents));
-  return totals;
-}
-
 function sumInstallmentPayloadsByInvoice(installments: ReturnType<typeof buildInstallments>) {
   const totals = new Map<string, number>();
   installments.forEach((installment) => totals.set(installment.invoiceId, (totals.get(installment.invoiceId) ?? 0) + installment.amountInCents));
@@ -696,46 +685,6 @@ function buildInvoicePayloads(userId: string, card: CreditCard, installments: Re
       },
     };
   });
-}
-
-function buildInvoiceDates(cycleDate: Date, closingDay: number, dueDay: number) {
-  const year = cycleDate.getFullYear();
-  const month = cycleDate.getMonth();
-  const closingDate = new Date(year, month, clampDay(year, month, closingDay), 23, 59, 59, 999);
-  const dueMonth = dueDay <= closingDay ? month + 1 : month;
-  const dueDate = new Date(year, dueMonth, clampDay(year, dueMonth, dueDay), 23, 59, 59, 999);
-  return {
-    cycleKey: `${closingDate.getFullYear()}-${String(closingDate.getMonth() + 1).padStart(2, "0")}`,
-    closingDate,
-    dueDate,
-  };
-}
-
-function resolveInvoiceCycleDate(purchaseDate: Date, closingDay: number) {
-  const base = new Date(purchaseDate);
-  if (purchaseDate.getDate() > closingDay) {
-    base.setMonth(base.getMonth() + 1);
-  }
-  return base;
-}
-
-function addMonths(date: Date, months: number) {
-  return new Date(date.getFullYear(), date.getMonth() + months, 1);
-}
-
-function clampDay(year: number, month: number, day: number) {
-  return Math.min(day, new Date(year, month + 1, 0).getDate());
-}
-
-function computeInvoiceStatus(dueDate: Date): InvoiceStatus {
-  return dueDate < new Date() ? "OVERDUE" : "OPEN";
-}
-
-function normalizeInvoice(invoice: CardInvoice) {
-  if (invoice.status === "PAID") return invoice;
-  if (invoice.dueDate < new Date()) return { ...invoice, status: "OVERDUE" as const };
-  if (invoice.closingDate < new Date()) return { ...invoice, status: "CLOSED" as const };
-  return invoice;
 }
 
 function isValidDay(day: number) {

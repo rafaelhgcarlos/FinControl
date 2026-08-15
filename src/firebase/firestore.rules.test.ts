@@ -126,6 +126,24 @@ function invoiceData(userId = userA) {
   };
 }
 
+function recurringTransactionData(userId = userA) {
+  return {
+    userId,
+    createdAt: now,
+    updatedAt: now,
+    amountInCents: 45000,
+    type: "EXPENSE",
+    targetType: "ACCOUNT",
+    frequency: "MONTHLY",
+    status: "ACTIVE",
+    categoryId: "category-a",
+    accountId: "account-a",
+    description: "Aluguel",
+    startDate: now,
+    nextOccurrenceDate: now,
+  };
+}
+
 async function seedPrivateDoc(collectionName: string, id: string, data: Record<string, unknown>) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), collectionName, id), data);
@@ -495,5 +513,25 @@ describe("Firestore security rules", () => {
       firstInstallmentDate: now,
       idempotencyKey: "spoof",
     }));
+  });
+
+  it("protects recurring transactions with ownership and valid references", async () => {
+    const dbA = authedDb(userA);
+    const dbB = authedDb(userB);
+
+    await assertSucceeds(setDoc(doc(dbA, "accounts", "account-a"), accountData(userA)));
+    await assertSucceeds(setDoc(doc(dbA, "categories", "category-a"), categoryData(userA)));
+    await assertSucceeds(setDoc(doc(dbA, "recurringTransactions", "rent"), recurringTransactionData(userA)));
+    await assertSucceeds(updateDoc(doc(dbA, "recurringTransactions", "rent"), {
+      status: "PAUSED",
+      updatedAt: now,
+    }));
+    await assertFails(setDoc(doc(dbA, "recurringTransactions", "spoof"), recurringTransactionData(userB)));
+    await assertFails(setDoc(doc(dbA, "recurringTransactions", "invalid-category"), {
+      ...recurringTransactionData(userA),
+      categoryId: "missing-category",
+    }));
+    await assertFails(getDoc(doc(dbB, "recurringTransactions", "rent")));
+    await assertFails(deleteDoc(doc(dbA, "recurringTransactions", "rent")));
   });
 });

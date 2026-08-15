@@ -1,9 +1,10 @@
-import { BarChart3, CalendarDays, CreditCard, Gauge, Landmark, PiggyBank, ReceiptText, Settings, Tags, Target } from "lucide-react";
+import { BarChart3, CalendarDays, CreditCard, Gauge, Landmark, PiggyBank, ReceiptText, Repeat, Settings, Tags, Target } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 
 const items = [
   { label: "Inicio", to: "/app", icon: Gauge },
   { label: "Historico", to: "/app/transactions", icon: ReceiptText },
+  { label: "Recorrencias", to: "/app/recurring", icon: Repeat },
   { label: "Contas", to: "/app/accounts", icon: Landmark },
   { label: "Categorias", to: "/app/categories", icon: Tags },
   { label: "Cartoes", to: "/app/cards", icon: CreditCard },

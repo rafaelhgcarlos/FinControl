@@ -11,6 +11,7 @@ import { FeaturePage } from "../pages/FeaturePage";
 import { LandingPage } from "../pages/LandingPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ReportsPage } from "../pages/ReportsPage";
+import { RecurringTransactionsPage } from "../pages/RecurringTransactionsPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { TransactionsPage } from "../pages/TransactionsPage";
 
@@ -27,6 +28,7 @@ export function AppRoutes() {
         <Route path="/app" element={<AppShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="transactions" element={<TransactionsPage />} />
+          <Route path="recurring" element={<RecurringTransactionsPage />} />
           <Route path="accounts" element={<AccountsPage />} />
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="cards" element={<CardsPage />} />

@@ -9,6 +9,7 @@ import { Sidebar } from "./Sidebar";
 const titles: Record<string, string> = {
   "/app": "Visao geral",
   "/app/transactions": "Historico",
+  "/app/recurring": "Recorrencias",
   "/app/accounts": "Contas",
   "/app/categories": "Categorias",
   "/app/cards": "Cartoes",

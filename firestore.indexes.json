@@ -51,6 +51,14 @@
         { "fieldPath": "type", "order": "ASCENDING" },
         { "fieldPath": "name", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "recurringTransactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "nextOccurrenceDate", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

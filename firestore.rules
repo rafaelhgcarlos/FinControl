@@ -58,7 +58,7 @@ service cloud.firestore {
 
     function validTransaction() {
       let required = ['userId', 'createdAt', 'updatedAt', 'amountInCents', 'date', 'type', 'accountId'];
-      let optional = ['id', 'description', 'categoryId', 'destinationAccountId'];
+      let optional = ['id', 'description', 'categoryId', 'destinationAccountId', 'recurringTransactionId', 'occurrenceKey'];
       return commonPrivateCreateFields(required, optional)
         && request.resource.data.amountInCents is int
         && request.resource.data.amountInCents > 0
@@ -68,9 +68,34 @@ service cloud.firestore {
         && (!('description' in request.resource.data) || request.resource.data.description is string || request.resource.data.description == null)
         && (!('categoryId' in request.resource.data) || request.resource.data.categoryId is string || request.resource.data.categoryId == null)
         && (!('destinationAccountId' in request.resource.data) || request.resource.data.destinationAccountId is string || request.resource.data.destinationAccountId == null)
+        && (!('recurringTransactionId' in request.resource.data) || request.resource.data.recurringTransactionId is string)
+        && (!('occurrenceKey' in request.resource.data) || request.resource.data.occurrenceKey is string)
         && (request.resource.data.type == 'TRANSFER' || request.resource.data.categoryId is string)
         && (request.resource.data.type != 'TRANSFER' || request.resource.data.destinationAccountId is string)
         && (request.resource.data.type != 'TRANSFER' || request.resource.data.destinationAccountId != request.resource.data.accountId);
+    }
+
+    function validRecurringTransaction() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'amountInCents', 'type', 'targetType', 'frequency', 'status', 'categoryId', 'description', 'startDate', 'nextOccurrenceDate'];
+      let optional = ['id', 'accountId', 'cardId', 'endDate', 'lastProcessedDate'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.amountInCents is int
+        && request.resource.data.amountInCents > 0
+        && request.resource.data.type in ['INCOME', 'EXPENSE']
+        && request.resource.data.targetType in ['ACCOUNT', 'CARD']
+        && request.resource.data.frequency in ['WEEKLY', 'MONTHLY', 'YEARLY']
+        && request.resource.data.status in ['ACTIVE', 'PAUSED', 'CANCELED']
+        && request.resource.data.categoryId is string
+        && request.resource.data.description is string
+        && request.resource.data.startDate is timestamp
+        && request.resource.data.nextOccurrenceDate is timestamp
+        && (!('endDate' in request.resource.data) || request.resource.data.endDate is timestamp || request.resource.data.endDate == null)
+        && (!('lastProcessedDate' in request.resource.data) || request.resource.data.lastProcessedDate is timestamp)
+        && (!('accountId' in request.resource.data) || request.resource.data.accountId is string || request.resource.data.accountId == null)
+        && (!('cardId' in request.resource.data) || request.resource.data.cardId is string || request.resource.data.cardId == null)
+        && (request.resource.data.targetType != 'ACCOUNT' || accountBelongsToUser(request.resource.data.accountId))
+        && (request.resource.data.targetType != 'CARD' || cardBelongsToUser(request.resource.data.cardId))
+        && categoryAcceptsTransaction(request.resource.data.categoryId, request.resource.data.type);
     }
 
     function accountBelongsToUser(accountId) {
@@ -284,6 +309,13 @@ service cloud.firestore {
       allow create: if ownsIncomingResource() && validTransaction() && validTransactionReferences();
       allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validTransaction() && validTransactionReferences();
       allow delete: if ownsExistingResource();
+    }
+
+    match /recurringTransactions/{documentId} {
+      allow read: if ownsExistingResource();
+      allow create: if ownsIncomingResource() && validRecurringTransaction();
+      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validRecurringTransaction();
+      allow delete: if false;
     }
 
     match /cards/{documentId} {

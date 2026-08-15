@@ -10,6 +10,8 @@ export type Transaction = UserScopedEntity & {
   destinationAccountId?: string;
   date: Date;
   description?: string;
+  recurringTransactionId?: string;
+  occurrenceKey?: string;
 };
 
 export type TransactionFilters = {

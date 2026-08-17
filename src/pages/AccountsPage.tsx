@@ -14,6 +14,7 @@ import { Table } from "../components/Table";
 import { Toast } from "../components/Toast";
 import { LoadingState } from "../components/LoadingState";
 import { useAuth } from "../contexts/AuthContext";
+import { useActionLock } from "../hooks/useActionLock";
 import { accountTypes, archiveAccount, createAccount, listAccounts, updateAccount, type AccountInput } from "../services/accountsService";
 import type { Account, AccountStatus, AccountType } from "../types/account";
 import { getFriendlyFirebaseError } from "../utils/firebaseErrors";
@@ -31,6 +32,7 @@ const initialForm: AccountInput = {
 
 export function AccountsPage() {
   const { user } = useAuth();
+  const { isActionPending, runAction } = useActionLock();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [form, setForm] = useState<AccountInput>(initialForm);
   const [editing, setEditing] = useState<Account | null>(null);
@@ -81,39 +83,43 @@ export function AccountsPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!user) return;
-    try {
-      if (editing) {
-        await updateAccount(editing.id, form);
-        setMessage("Conta atualizada.");
-      } else {
-        await createAccount(user.uid, form);
-        setMessage("Conta criada.");
+    await runAction("account:save", async () => {
+      try {
+        if (editing) {
+          await updateAccount(editing.id, form);
+          setMessage("Conta atualizada.");
+        } else {
+          await createAccount(user.uid, form);
+          setMessage("Conta criada.");
+        }
+        setIsOpen(false);
+        await loadData();
+      } catch (error) {
+        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar a conta."));
       }
-      setIsOpen(false);
-      await loadData();
-    } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar a conta."));
-    }
+    });
   }
 
   async function handleArchive(account: Account) {
     if (!window.confirm("Arquivar esta conta? O historico sera preservado.")) return;
-    try {
-      await archiveAccount(account.id);
-      setMessage("Conta arquivada.");
-      await loadData();
-    } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel arquivar a conta."));
-    }
+    await runAction(`account:archive:${account.id}`, async () => {
+      try {
+        await archiveAccount(account.id);
+        setMessage("Conta arquivada.");
+        await loadData();
+      } catch (error) {
+        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel arquivar a conta."));
+      }
+    });
   }
 
   return (
     <>
-      <PageHeader title="Contas" description="Cadastre contas e reconcilie saldos com os lancamentos." action={<Button onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Nova conta</Button>} />
+      <PageHeader title="Contas" description="Cadastre contas e reconcilie saldos com os lancamentos." action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Nova conta</Button>} />
       {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <Card>
         {loading ? <LoadingState label="Carregando contas" /> : rows.length === 0 ? (
-          <EmptyState title="Nenhuma conta cadastrada" description="Crie sua primeira conta para registrar movimentacoes." icon={<Landmark className="h-6 w-6" aria-hidden="true" />} />
+          <EmptyState action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Criar primeira conta</Button>} title="Nenhuma conta cadastrada" description="Crie sua primeira conta para registrar movimentacoes." icon={<Landmark className="h-6 w-6" aria-hidden="true" />} />
         ) : (
           <>
             <div className="grid gap-3 md:hidden">
@@ -129,8 +135,8 @@ export function AccountsPage() {
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <p className="text-lg font-semibold">{formatCurrencyFromCents(balance)}</p>
                     <div className="flex gap-1">
-                      <Button aria-label="Editar conta" className="px-2" variant="ghost" onClick={() => openEdit(account)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button>
-                      {account.status === "ACTIVE" ? <Button aria-label="Arquivar conta" className="px-2" variant="ghost" onClick={() => void handleArchive(account)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}
+                      <Button aria-label="Editar conta" className="px-2" disabled={isActionPending()} variant="ghost" onClick={() => openEdit(account)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button>
+                      {account.status === "ACTIVE" ? <Button aria-label="Arquivar conta" className="px-2" disabled={isActionPending()} variant="ghost" onClick={() => void handleArchive(account)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}
                     </div>
                   </div>
                 </div>
@@ -158,8 +164,8 @@ export function AccountsPage() {
                       <td className="px-3 py-3"><Badge variant={account.status === "ACTIVE" ? "success" : "neutral"}>{account.status === "ACTIVE" ? "Ativa" : "Arquivada"}</Badge></td>
                       <td className="px-3 py-3">
                         <div className="flex justify-end gap-2">
-                          <Button aria-label="Editar conta" variant="ghost" onClick={() => openEdit(account)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button>
-                          {account.status === "ACTIVE" ? <Button aria-label="Arquivar conta" variant="ghost" onClick={() => void handleArchive(account)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}
+                          <Button aria-label="Editar conta" disabled={isActionPending()} variant="ghost" onClick={() => openEdit(account)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button>
+                          {account.status === "ACTIVE" ? <Button aria-label="Arquivar conta" disabled={isActionPending()} variant="ghost" onClick={() => void handleArchive(account)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}
                         </div>
                       </td>
                     </tr>
@@ -183,7 +189,7 @@ export function AccountsPage() {
             <FormField id="account-color" label="Cor"><Input id="account-color" type="color" value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} /></FormField>
             <FormField id="account-icon" label="Icone"><Input id="account-icon" value={form.icon} onChange={(event) => setForm({ ...form, icon: event.target.value })} /></FormField>
           </div>
-          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button><Button type="submit">Salvar</Button></div>
+          <div className="flex justify-end gap-2"><Button disabled={isActionPending("account:save")} variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button><Button disabled={isActionPending("account:save")} type="submit">{isActionPending("account:save") ? "Salvando..." : "Salvar"}</Button></div>
         </form>
       </Modal>
     </>

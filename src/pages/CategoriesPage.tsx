@@ -13,6 +13,7 @@ import { Table } from "../components/Table";
 import { Toast } from "../components/Toast";
 import { LoadingState } from "../components/LoadingState";
 import { useAuth } from "../contexts/AuthContext";
+import { useActionLock } from "../hooks/useActionLock";
 import { archiveCategory, createCategory, listCategories, type CategoryInput } from "../services/categoriesService";
 import type { Category, CategoryType } from "../types/category";
 import { getFriendlyFirebaseError } from "../utils/firebaseErrors";
@@ -26,6 +27,7 @@ const initialForm: CategoryInput = {
 
 export function CategoriesPage() {
   const { user } = useAuth();
+  const { isActionPending, runAction } = useActionLock();
   const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState<CategoryInput>(initialForm);
   const [isOpen, setIsOpen] = useState(false);
@@ -49,35 +51,39 @@ export function CategoriesPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!user) return;
-    try {
-      await createCategory(user.uid, form);
-      setMessage("Categoria criada.");
-      setForm(initialForm);
-      setIsOpen(false);
-      await loadData();
-    } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar a categoria."));
-    }
+    await runAction("category:save", async () => {
+      try {
+        await createCategory(user.uid, form);
+        setMessage("Categoria criada.");
+        setForm(initialForm);
+        setIsOpen(false);
+        await loadData();
+      } catch (error) {
+        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar a categoria."));
+      }
+    });
   }
 
   async function handleArchive(category: Category) {
     if (!window.confirm("Arquivar esta categoria? Lancamentos antigos continuarao com historico preservado.")) return;
-    try {
-      await archiveCategory(category.id);
-      setMessage("Categoria arquivada.");
-      await loadData();
-    } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel arquivar a categoria."));
-    }
+    await runAction(`category:archive:${category.id}`, async () => {
+      try {
+        await archiveCategory(category.id);
+        setMessage("Categoria arquivada.");
+        await loadData();
+      } catch (error) {
+        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel arquivar a categoria."));
+      }
+    });
   }
 
   return (
     <>
-      <PageHeader title="Categorias" description="Use categorias padrao e personalize sua organizacao." action={<Button onClick={() => setIsOpen(true)}><Plus className="h-4 w-4" aria-hidden="true" />Nova categoria</Button>} />
+      <PageHeader title="Categorias" description="Use categorias padrao e personalize sua organizacao." action={<Button disabled={isActionPending()} onClick={() => setIsOpen(true)}><Plus className="h-4 w-4" aria-hidden="true" />Nova categoria</Button>} />
       {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <Card>
         {loading ? <LoadingState label="Carregando categorias" /> : categories.length === 0 ? (
-          <EmptyState title="Nenhuma categoria" description="As categorias padrao serao criadas automaticamente." icon={<Tags className="h-6 w-6" aria-hidden="true" />} />
+          <EmptyState action={<Button disabled={isActionPending()} onClick={() => setIsOpen(true)}><Plus className="h-4 w-4" aria-hidden="true" />Criar categoria</Button>} title="Nenhuma categoria" description="As categorias padrão são criadas automaticamente, e você também pode personalizar sua organização." icon={<Tags className="h-6 w-6" aria-hidden="true" />} />
         ) : (
           <>
             <div className="grid gap-3 md:hidden">
@@ -92,7 +98,7 @@ export function CategoriesPage() {
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <Badge variant={category.status === "ACTIVE" ? "success" : "neutral"}>{category.status === "ACTIVE" ? "Ativa" : "Arquivada"}</Badge>
-                    {category.status === "ACTIVE" ? <Button aria-label="Arquivar categoria" className="px-2" variant="ghost" onClick={() => void handleArchive(category)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}
+                    {category.status === "ACTIVE" ? <Button aria-label="Arquivar categoria" className="px-2" disabled={isActionPending()} variant="ghost" onClick={() => void handleArchive(category)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}
                   </div>
                 </div>
               ))}
@@ -115,7 +121,7 @@ export function CategoriesPage() {
                       <td className="px-3 py-3">{category.type === "INCOME" ? "Receita" : "Despesa"}</td>
                       <td className="px-3 py-3"><Badge>{category.isDefault ? "Padrao" : "Personalizada"}</Badge></td>
                       <td className="px-3 py-3"><Badge variant={category.status === "ACTIVE" ? "success" : "neutral"}>{category.status === "ACTIVE" ? "Ativa" : "Arquivada"}</Badge></td>
-                      <td className="px-3 py-3 text-right">{category.status === "ACTIVE" ? <Button aria-label="Arquivar categoria" variant="ghost" onClick={() => void handleArchive(category)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}</td>
+                      <td className="px-3 py-3 text-right">{category.status === "ACTIVE" ? <Button aria-label="Arquivar categoria" disabled={isActionPending()} variant="ghost" onClick={() => void handleArchive(category)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -132,7 +138,7 @@ export function CategoriesPage() {
             <FormField id="category-color" label="Cor"><Input id="category-color" type="color" value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} /></FormField>
             <FormField id="category-icon" label="Icone"><Input id="category-icon" value={form.icon} onChange={(event) => setForm({ ...form, icon: event.target.value })} /></FormField>
           </div>
-          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button><Button type="submit">Salvar</Button></div>
+          <div className="flex justify-end gap-2"><Button disabled={isActionPending("category:save")} variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button><Button disabled={isActionPending("category:save")} type="submit">{isActionPending("category:save") ? "Salvando..." : "Salvar"}</Button></div>
         </form>
       </Modal>
     </>

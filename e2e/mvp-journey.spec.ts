@@ -10,7 +10,7 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
 
   await page.goto("/app/accounts");
   await expect(page.getByText("Nenhuma conta cadastrada")).toBeVisible();
-  await page.getByRole("button", { name: "Nova conta" }).click();
+  await page.getByRole("button", { name: "Criar primeira conta" }).click();
   await page.getByLabel("Nome").fill("Conta principal");
   await fillCurrency(page, "Saldo inicial", 50_000);
   await page.getByRole("button", { name: "Salvar" }).click();
@@ -29,23 +29,26 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
   await page.goto("/app");
   await openGlobalLauncher(page);
   await page.getByRole("button", { name: /Receita/ }).click();
-  let transactionDialog = page.getByRole("dialog", { name: "Novo lancamento" });
+  let transactionDialog = page.getByRole("dialog", { name: "Novo lançamento" });
   await expect(transactionDialog).toBeVisible();
   await expect(transactionDialog.getByLabel("Tipo")).toHaveValue("INCOME");
+  await expect(transactionDialog.getByLabel("Descrição")).toHaveCount(0);
+  await transactionDialog.getByRole("button", { name: "Mais opções" }).click();
+  await expect(transactionDialog.getByLabel("Descrição")).toBeVisible();
   await transactionDialog.getByRole("button", { name: "Cancelar" }).click();
 
   await openGlobalLauncher(page);
   await page.getByRole("button", { name: /Despesa/ }).click();
-  transactionDialog = page.getByRole("dialog", { name: "Novo lancamento" });
+  transactionDialog = page.getByRole("dialog", { name: "Novo lançamento" });
   await expect(transactionDialog.getByLabel("Tipo")).toHaveValue("EXPENSE");
   await transactionDialog.getByRole("button", { name: "Cancelar" }).click();
 
   await openGlobalLauncher(page);
   await page.getByRole("button", { name: /Transferencia/ }).click();
-  transactionDialog = page.getByRole("dialog", { name: "Novo lancamento" });
+  transactionDialog = page.getByRole("dialog", { name: "Novo lançamento" });
   await expect(transactionDialog.getByLabel("Tipo")).toHaveValue("TRANSFER");
-  await expect(transactionDialog.getByLabel("Origem")).toBeVisible();
-  await expect(transactionDialog.getByLabel("Destino")).toBeVisible();
+  await expect(transactionDialog.getByLabel("Conta de origem")).toBeVisible();
+  await expect(transactionDialog.getByLabel("Conta de destino")).toBeVisible();
   await transactionDialog.getByRole("button", { name: "Cancelar" }).click();
 
   await seedFinancialJourney();
@@ -54,6 +57,10 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
   await expect(page.getByRole("table").getByText("Receita E2E")).toBeVisible();
   await expect(page.getByRole("table").getByText("Despesa E2E")).toBeVisible();
   await expect(page.getByRole("table").getByText("Transferencia E2E")).toBeVisible();
+  await page.getByLabel("Descricao").fill("resultado inexistente");
+  await expect(page.getByRole("button", { name: "Limpar filtros" })).toBeVisible();
+  await page.getByRole("button", { name: "Limpar filtros" }).click();
+  await expect(page.getByRole("table").getByText("Receita E2E")).toBeVisible();
 
   await page.goto("/app/accounts");
   await expect(page.getByRole("table").getByText("R$ 1.150,00")).toBeVisible();
@@ -65,13 +72,13 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
 
   await openGlobalLauncher(page);
   await page.getByRole("button", { name: /Compra no cartao/ }).click();
-  const purchaseDialog = page.getByRole("dialog", { name: "Nova compra no cartao" });
+  const purchaseDialog = page.getByRole("dialog", { name: "Nova compra no cartão" });
   await expect(purchaseDialog).toBeVisible();
-  await expect(purchaseDialog.getByLabel("Cartao")).toHaveValue("e2e-card");
+  await expect(purchaseDialog.getByLabel("Cartão")).toHaveValue("e2e-card");
   await purchaseDialog.getByRole("button", { name: "Cancelar" }).click();
   await page.getByRole("link", { name: /Cartao E2E/ }).click();
-  await expect(page.getByRole("table").getByText("Compra parcelada E2E")).toBeVisible();
-  await expect(page.getByRole("table").getByText("1/3")).toBeVisible();
+  await expect(page.getByText("Compra parcelada E2E").first()).toBeVisible();
+  await expect(page.getByText(/Parcela 1\/3/)).toBeVisible();
 
   await page.goto("/app/recurring");
   await expect(page.getByText("Recorrencia E2E")).toBeVisible();
@@ -102,6 +109,7 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
   await page.getByLabel("E-mail").fill(`isolated-${Date.now()}@example.test`);
   await page.getByLabel("Senha").fill(testPassword);
   await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(page).toHaveURL(/\/app$/);
   await page.goto("/app/accounts");
   await expect(page.getByText("Nenhuma conta cadastrada")).toBeVisible();
   await expect(page.getByText("Conta principal")).toHaveCount(0);

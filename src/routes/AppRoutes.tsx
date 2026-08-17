@@ -1,11 +1,11 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { AdminRoute, ProtectedRoute, PublicOnlyRoute } from "../components/ProtectedRoute";
 import { AccountsPage } from "../pages/AccountsPage";
 import { AdminPage } from "../pages/AdminPage";
 import { ForgotPasswordPage, LoginPage, RegisterPage } from "../pages/AuthPages";
 import { CategoriesPage } from "../pages/CategoriesPage";
-import { CardsPage } from "../pages/CardsPage";
+import { CardDetailPage, CardsPage } from "../pages/CardsPage";
 import { BudgetsPage } from "../pages/BudgetsPage";
 import { CalendarPage } from "../pages/CalendarPage";
 import { DashboardPage } from "../pages/DashboardPage";
@@ -34,7 +34,7 @@ export function AppRoutes() {
           <Route path="accounts" element={<AccountsPage />} />
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="cards" element={<CardsPage />} />
-          <Route path="cards/:cardId" element={<CardsPage />} />
+          <Route path="cards/:cardId" element={<CardDetailRoute />} />
           <Route path="budgets" element={<BudgetsPage />} />
           <Route path="goals" element={<GoalsPage />} />
           <Route path="calendar" element={<CalendarPage />} />
@@ -47,4 +47,9 @@ export function AppRoutes() {
       <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
   );
+}
+
+function CardDetailRoute() {
+  const { cardId = "" } = useParams();
+  return <CardDetailPage cardId={cardId} />;
 }

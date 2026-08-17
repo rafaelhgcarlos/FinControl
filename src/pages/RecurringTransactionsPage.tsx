@@ -14,6 +14,7 @@ import { Select } from "../components/Select";
 import { Textarea } from "../components/Textarea";
 import { Toast } from "../components/Toast";
 import { useAuth } from "../contexts/AuthContext";
+import { useActionLock } from "../hooks/useActionLock";
 import { listAccounts } from "../services/accountsService";
 import { listCards } from "../services/cardsService";
 import { listCategories } from "../services/categoriesService";
@@ -43,6 +44,7 @@ const initialForm: RecurringTransactionInput = {
 
 export function RecurringTransactionsPage() {
   const { user } = useAuth();
+  const { isActionPending, runAction } = useActionLock();
   const [recurrences, setRecurrences] = useState<RecurringTransaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -51,7 +53,6 @@ export function RecurringTransactionsPage() {
   const [editing, setEditing] = useState<RecurringTransaction | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const processedOnLoad = useRef(false);
 
@@ -125,43 +126,46 @@ export function RecurringTransactionsPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!user) return;
-    try {
-      if (editing) {
-        await updateRecurringTransaction(editing.id, form);
-        setMessage("Recorrencia atualizada.");
-      } else {
-        await createRecurringTransaction(user.uid, form);
-        setMessage("Recorrencia criada.");
+    await runAction("recurring:save", async () => {
+      try {
+        if (editing) {
+          await updateRecurringTransaction(editing.id, form);
+          setMessage("Recorrencia atualizada.");
+        } else {
+          await createRecurringTransaction(user.uid, form);
+          setMessage("Recorrencia criada.");
+        }
+        setIsOpen(false);
+        await loadData();
+      } catch (error) {
+        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar a recorrencia."));
       }
-      setIsOpen(false);
-      await loadData();
-    } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar a recorrencia."));
-    }
+    });
   }
 
   async function handleStatus(recurrence: RecurringTransaction, status: RecurringStatus) {
-    try {
-      await updateRecurringStatus(recurrence.id, status);
-      setMessage(status === "CANCELED" ? "Recorrencia cancelada." : status === "PAUSED" ? "Recorrencia pausada." : "Recorrencia reativada.");
-      await loadData();
-    } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel alterar a recorrencia."));
-    }
+    await runAction(`recurring:status:${recurrence.id}`, async () => {
+      try {
+        await updateRecurringStatus(recurrence.id, status);
+        setMessage(status === "CANCELED" ? "Recorrencia cancelada." : status === "PAUSED" ? "Recorrencia pausada." : "Recorrencia reativada.");
+        await loadData();
+      } catch (error) {
+        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel alterar a recorrencia."));
+      }
+    });
   }
 
   async function handleProcessDue() {
     if (!user) return;
-    try {
-      setProcessing(true);
-      const processed = await processDueRecurringTransactions(user.uid, recurrences, accounts, categories, cards);
-      setMessage(processed > 0 ? `${processed} ocorrencia(s) processada(s).` : "Nenhuma recorrencia vencida.");
-      await loadData();
-    } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel processar recorrencias."));
-    } finally {
-      setProcessing(false);
-    }
+    await runAction("recurring:process", async () => {
+      try {
+        const processed = await processDueRecurringTransactions(user.uid, recurrences, accounts, categories, cards);
+        setMessage(processed > 0 ? `${processed} ocorrencia(s) processada(s).` : "Nenhuma recorrencia vencida.");
+        await loadData();
+      } catch (error) {
+        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel processar recorrencias."));
+      }
+    });
   }
 
   function setFormType(type: RecurringTransactionType) {
@@ -178,12 +182,12 @@ export function RecurringTransactionsPage() {
       <PageHeader
         title="Recorrências"
         description="Automatize receitas e despesas quando o app for aberto, sem tarefas periodicas no backend."
-        action={<div className="flex gap-2"><Button variant="secondary" onClick={() => void handleProcessDue()} disabled={processing}><RefreshCw className="h-4 w-4" aria-hidden="true" />Processar</Button><Button onClick={openCreate}><Repeat className="h-4 w-4" aria-hidden="true" />Nova recorrencia</Button></div>}
+        action={<div className="flex gap-2"><Button variant="secondary" onClick={() => void handleProcessDue()} disabled={isActionPending()}><RefreshCw className="h-4 w-4" aria-hidden="true" />{isActionPending("recurring:process") ? "Processando..." : "Processar"}</Button><Button disabled={isActionPending()} onClick={openCreate}><Repeat className="h-4 w-4" aria-hidden="true" />Nova recorrencia</Button></div>}
       />
       {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <Card>
         {loading ? <LoadingState label="Carregando recorrencias" /> : recurrences.length === 0 ? (
-          <EmptyState title="Nenhuma recorrencia" description="Crie uma receita ou despesa recorrente para gerar ocorrencias automaticamente." icon={<Repeat className="h-6 w-6" aria-hidden="true" />} />
+          <EmptyState action={<Button disabled={isActionPending()} onClick={openCreate}><Repeat className="h-4 w-4" aria-hidden="true" />Criar recorrência</Button>} title="Nenhuma recorrência" description="Crie uma receita ou despesa recorrente para gerar ocorrências automaticamente." icon={<Repeat className="h-6 w-6" aria-hidden="true" />} />
         ) : (
           <div className="grid gap-3 lg:grid-cols-2">
             {recurrences.map((recurrence) => (
@@ -196,10 +200,10 @@ export function RecurringTransactionsPage() {
                   <Badge variant={recurrence.status === "ACTIVE" ? "success" : recurrence.status === "PAUSED" ? "warning" : "neutral"}>{statusLabel(recurrence.status)}</Badge>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button aria-label="Editar recorrencia" variant="ghost" onClick={() => openEdit(recurrence)}><Edit2 className="h-4 w-4" aria-hidden="true" />Editar</Button>
-                  {recurrence.status === "ACTIVE" ? <Button variant="ghost" onClick={() => void handleStatus(recurrence, "PAUSED")}><Pause className="h-4 w-4" aria-hidden="true" />Pausar</Button> : null}
-                  {recurrence.status === "PAUSED" ? <Button variant="ghost" onClick={() => void handleStatus(recurrence, "ACTIVE")}><Play className="h-4 w-4" aria-hidden="true" />Retomar</Button> : null}
-                  {recurrence.status !== "CANCELED" ? <Button variant="ghost" onClick={() => void handleStatus(recurrence, "CANCELED")}><XCircle className="h-4 w-4" aria-hidden="true" />Cancelar</Button> : null}
+                  <Button aria-label="Editar recorrencia" disabled={isActionPending()} variant="ghost" onClick={() => openEdit(recurrence)}><Edit2 className="h-4 w-4" aria-hidden="true" />Editar</Button>
+                  {recurrence.status === "ACTIVE" ? <Button disabled={isActionPending()} variant="ghost" onClick={() => void handleStatus(recurrence, "PAUSED")}><Pause className="h-4 w-4" aria-hidden="true" />Pausar</Button> : null}
+                  {recurrence.status === "PAUSED" ? <Button disabled={isActionPending()} variant="ghost" onClick={() => void handleStatus(recurrence, "ACTIVE")}><Play className="h-4 w-4" aria-hidden="true" />Retomar</Button> : null}
+                  {recurrence.status !== "CANCELED" ? <Button disabled={isActionPending()} variant="ghost" onClick={() => void handleStatus(recurrence, "CANCELED")}><XCircle className="h-4 w-4" aria-hidden="true" />Cancelar</Button> : null}
                 </div>
               </div>
             ))}
@@ -225,7 +229,7 @@ export function RecurringTransactionsPage() {
             <FormField id="recurring-end" label="Fim opcional"><Input id="recurring-end" type="date" value={form.endDate ? toDateInputValue(form.endDate) : ""} onChange={(event) => setForm({ ...form, endDate: event.target.value ? new Date(`${event.target.value}T12:00:00.000-03:00`) : undefined })} /></FormField>
           </div>
           <FormField id="recurring-description" label="Descricao"><Textarea id="recurring-description" required value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></FormField>
-          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button><Button type="submit">Salvar</Button></div>
+          <div className="flex justify-end gap-2"><Button disabled={isActionPending("recurring:save")} variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button><Button disabled={isActionPending("recurring:save")} type="submit">{isActionPending("recurring:save") ? "Salvando..." : "Salvar"}</Button></div>
         </form>
       </Modal>
     </>

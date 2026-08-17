@@ -1,9 +1,10 @@
-import { AlertCircle, ArrowDownRight, ArrowUpRight, Landmark, Plus, ReceiptText, Sparkles } from "lucide-react";
+import { AlertCircle, ArrowDownRight, ArrowUpRight, CreditCard, Landmark, Plus, ReceiptText, Sparkles, Target } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { EmptyState } from "../components/EmptyState";
 import { CategorySpendingChart, IncomeExpenseChart, TrendLineChart } from "../components/FinancialCharts";
 import { LoadingState } from "../components/LoadingState";
 import { PageHeader } from "../components/PageHeader";
@@ -54,9 +55,10 @@ export function DashboardPage() {
   }
 
   const stats = analytics ? [
-    { label: "Patrimonio disponivel", value: formatCurrencyFromCents(analytics.totalBalanceInCents), icon: Landmark, detail: `${analytics.accounts.filter((account) => account.status === "ACTIVE").length} conta(s) ativa(s)`, tone: "sky" as const },
-    { label: "Resultado do periodo", value: formatCurrencyFromCents(analytics.resultInCents), icon: analytics.resultInCents >= 0 ? ArrowUpRight : ArrowDownRight, detail: analytics.savingsRate === null ? "Sem receita no periodo" : `${analytics.savingsRate.toFixed(1)}% da receita preservada`, tone: analytics.resultInCents >= 0 ? "emerald" as const : "rose" as const },
-    { label: "Despesas do periodo", value: formatCurrencyFromCents(analytics.expenseInCents), icon: ReceiptText, detail: analytics.topExpenseCategory ? `Maior impacto: ${analytics.topExpenseCategory.name}` : "Sem categoria dominante", tone: "rose" as const },
+    { label: "Patrimônio disponível", value: formatCurrencyFromCents(analytics.totalBalanceInCents), icon: Landmark, detail: `${analytics.accounts.filter((account) => account.status === "ACTIVE").length} conta(s) ativa(s)`, tone: "sky" as const },
+    { label: "Receitas do período", value: formatCurrencyFromCents(analytics.incomeInCents), icon: ArrowUpRight, detail: "Entradas consideradas no período", tone: "emerald" as const },
+    { label: "Despesas do período", value: formatCurrencyFromCents(analytics.expenseInCents), icon: ReceiptText, detail: analytics.topExpenseCategory ? `Maior impacto: ${analytics.topExpenseCategory.name}` : "Sem categoria dominante", tone: "rose" as const },
+    { label: "Resultado do período", value: formatCurrencyFromCents(analytics.resultInCents), icon: analytics.resultInCents >= 0 ? ArrowUpRight : ArrowDownRight, detail: analytics.savingsRate === null ? "Sem receita no período" : `${analytics.savingsRate.toFixed(1)}% da receita preservada`, tone: analytics.resultInCents >= 0 ? "emerald" as const : "rose" as const },
   ] : [];
 
   return (
@@ -70,60 +72,29 @@ export function DashboardPage() {
       {error ? <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-100">{error}</div> : null}
       {loading ? <LoadingState label="Carregando dashboard" /> : analytics ? (
         <div className="space-y-4 sm:space-y-5">
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Indicadores financeiros">
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo financeiro do período">
             {stats.map((stat) => <StatCard key={stat.label} {...stat} />)}
           </section>
 
-          <section className="grid gap-4 2xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
-            <div className="space-y-4">
-              <section className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
-                <IncomeExpenseChart incomeInCents={analytics.incomeInCents} expenseInCents={analytics.expenseInCents} />
-                <TrendLineChart title="Evolucao financeira" data={analytics.monthlyEvolution} mode="balance" />
-              </section>
-              <section className="grid gap-4 xl:grid-cols-2">
-                <CategorySpendingChart items={analytics.categorySpending} />
-                <TrendLineChart title="Gastos no tempo" data={analytics.timeSeries} mode="expenses" />
-              </section>
+          <FinancialRadar analytics={analytics} />
+
+          <section aria-labelledby="dashboard-analysis-title" className="space-y-3 pt-2">
+            <div><h2 className="text-base font-semibold" id="dashboard-analysis-title">Análises do período</h2><p className="mt-1 text-sm text-slate-500">Explore tendências e a distribuição dos seus gastos.</p></div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <IncomeExpenseChart incomeInCents={analytics.incomeInCents} expenseInCents={analytics.expenseInCents} />
+              <TrendLineChart title="Evolução financeira" data={analytics.monthlyEvolution} mode="balance" />
+              <CategorySpendingChart items={analytics.categorySpending} />
+              <TrendLineChart title="Gastos no tempo" data={analytics.timeSeries} mode="expenses" />
             </div>
-            <Card className="h-fit 2xl:sticky 2xl:top-24">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
-                    <Sparkles className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <h2 className="text-sm font-semibold">Radar financeiro</h2>
-                    <p className="text-xs text-slate-500">Prioridades do periodo</p>
-                  </div>
-                </div>
-                <Badge variant={analytics.alerts.length > 0 ? "warning" : "success"}>{analytics.alerts.length}</Badge>
-              </div>
-              <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
-                {analytics.alerts.map((alert) => (
-                  <div key={alert.id} className="py-3 first:pt-0 last:pb-0">
-                    <div className="flex items-start gap-3">
-                      <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${alertClassName(alert.severity)}`}>
-                        <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{alert.title}</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{alert.description}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {analytics.alerts.length === 0 ? <div className="rounded-lg bg-emerald-50 px-3 py-4 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300">Tudo em ordem neste periodo.</div> : null}
-              </div>
-            </Card>
           </section>
 
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <CompactList title="Contas" empty="Nenhuma conta ativa.">
+            <CompactList title="Contas" empty={<EmptyState action={<Button asChild><Link to="/app/accounts">Gerenciar contas</Link></Button>} className="mt-0" description="Cadastre ou reative uma conta para acompanhar seus saldos." icon={<Landmark className="h-5 w-5" />} size="compact" title="Nenhuma conta ativa" />}>
               {analytics.accounts.filter((account) => account.status === "ACTIVE").slice(0, 5).map((account) => (
                 <Row key={account.id} label={account.name} value={formatCurrencyFromCents(account.currentBalanceInCents)} />
               ))}
             </CompactList>
-            <CompactList title="Faturas" empty="Nenhuma fatura em aberto." footer={formatCurrencyFromCents(analytics.upcomingInvoicesTotalInCents)}>
+            <CompactList title="Faturas" empty={<EmptyState action={<Button asChild variant="secondary"><Link to="/app/cards">Ver cartões</Link></Button>} className="mt-0" description="Compras e próximas faturas aparecerão aqui." icon={<CreditCard className="h-5 w-5" />} size="compact" title="Nenhuma fatura em aberto" />} footer={formatCurrencyFromCents(analytics.upcomingInvoicesTotalInCents)}>
               {analytics.upcomingInvoices.map((invoice) => (
                 <Link key={invoice.id} className="block rounded-md px-2 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/60" to={`/app/cards/${invoice.cardId}`}>
                   <Row label={invoice.cardName} detail={invoice.daysUntilDue < 0 ? `Vencida ha ${Math.abs(invoice.daysUntilDue)} dia(s)` : `Vence em ${invoice.daysUntilDue} dia(s)`} value={formatCurrencyFromCents(invoice.amountInCents)} />
@@ -145,7 +116,7 @@ export function DashboardPage() {
                   <p className="mt-2 text-xs text-slate-500">{formatCurrencyFromCents(goal.currentAmountInCents)} de {formatCurrencyFromCents(goal.targetAmountInCents)}</p>
                 </div>
               ))}
-              {analytics.goalProgress.length === 0 ? <p className="text-sm text-slate-500">Nenhuma meta ativa para acompanhar.</p> : null}
+              {analytics.goalProgress.length === 0 ? <EmptyState action={<Button asChild variant="secondary"><Link to="/app/goals">Criar meta</Link></Button>} className="mt-0" description="Defina um objetivo para acompanhar sua evolução." icon={<Target className="h-5 w-5" />} size="compact" title="Nenhuma meta ativa" /> : null}
               </div>
             </Card>
           </section>
@@ -155,7 +126,32 @@ export function DashboardPage() {
   );
 }
 
-function CompactList({ children, empty, footer, title }: { children: ReactNode; empty: string; footer?: string; title: string }) {
+function FinancialRadar({ analytics }: { analytics: FinancialAnalytics }) {
+  return (
+    <Card className={analytics.alerts.length > 0 ? "border-amber-200 dark:border-amber-900" : undefined}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"><Sparkles className="h-4 w-4" aria-hidden="true" /></span>
+          <div><h2 className="text-base font-semibold">Atenção agora</h2><p className="text-xs text-slate-500">Alertas e pendências prioritárias</p></div>
+        </div>
+        <Badge variant={analytics.alerts.length > 0 ? "warning" : "success"}>{analytics.alerts.length}</Badge>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {analytics.alerts.map((alert) => (
+          <div className="rounded-lg border border-slate-100 p-3 dark:border-slate-800" key={alert.id}>
+            <div className="flex items-start gap-3">
+              <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${alertClassName(alert.severity)}`}><AlertCircle className="h-3.5 w-3.5" aria-hidden="true" /></span>
+              <div><p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{alert.title}</p><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{alert.description}</p></div>
+            </div>
+          </div>
+        ))}
+        {analytics.alerts.length === 0 ? <div className="rounded-lg bg-emerald-50 px-3 py-4 text-sm text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300 md:col-span-2 xl:col-span-3">Tudo em ordem neste período.</div> : null}
+      </div>
+    </Card>
+  );
+}
+
+function CompactList({ children, empty, footer, title }: { children: ReactNode; empty: ReactNode; footer?: string; title: string }) {
   const hasItems = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
     <Card>
@@ -163,7 +159,7 @@ function CompactList({ children, empty, footer, title }: { children: ReactNode; 
         <h2 className="text-base font-semibold">{title}</h2>
         {footer ? <span className="text-sm font-semibold">{footer}</span> : null}
       </div>
-      <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800">{hasItems ? children : <p className="text-sm text-slate-500">{empty}</p>}</div>
+      <div className="mt-4 divide-y divide-slate-100 dark:divide-slate-800">{hasItems ? children : empty}</div>
     </Card>
   );
 }

@@ -1,5 +1,5 @@
 import { Edit2, Plus, ReceiptText, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { DocumentSnapshot } from "firebase/firestore";
 import { Badge } from "../components/Badge";
@@ -13,10 +13,11 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Select } from "../components/Select";
 import { Table } from "../components/Table";
-import { Textarea } from "../components/Textarea";
 import { Toast } from "../components/Toast";
 import { LoadingState } from "../components/LoadingState";
+import { TransactionForm } from "../components/TransactionForm";
 import { useAuth } from "../contexts/AuthContext";
+import { useActionLock } from "../hooks/useActionLock";
 import { listAccounts } from "../services/accountsService";
 import { listCategories } from "../services/categoriesService";
 import { createTransaction, deleteTransaction, listTransactionsPage, updateTransaction, type TransactionInput } from "../services/transactionsService";
@@ -27,17 +28,18 @@ import { formatDatePtBr, toDateInputValue } from "../utils/date";
 import { getFriendlyFirebaseError } from "../utils/firebaseErrors";
 import { formatCurrencyFromCents, parseCurrencyToCents } from "../utils/money";
 
-const today = toDateInputValue(new Date());
-
-const initialForm: TransactionInput = {
-  amountInCents: 0,
-  type: "EXPENSE",
-  categoryId: "",
-  accountId: "",
-  destinationAccountId: "",
-  date: new Date(`${today}T12:00:00.000Z`),
-  description: "",
-};
+function createInitialForm(type: TransactionType = "EXPENSE"): TransactionInput {
+  const today = toDateInputValue(new Date());
+  return {
+    amountInCents: 0,
+    type,
+    categoryId: "",
+    accountId: "",
+    destinationAccountId: "",
+    date: new Date(`${today}T12:00:00.000Z`),
+    description: "",
+  };
+}
 
 function requestedTransactionType(value: string | null): TransactionType {
   return value === "INCOME" || value === "TRANSFER" ? value : "EXPENSE";
@@ -45,6 +47,7 @@ function requestedTransactionType(value: string | null): TransactionType {
 
 export function TransactionsPage() {
   const { user } = useAuth();
+  const { isActionPending, runAction } = useActionLock();
   const [searchParams, setSearchParams] = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -52,7 +55,7 @@ export function TransactionsPage() {
   const [filters, setFilters] = useState<TransactionFilters>({ type: "ALL" });
   const [cursor, setCursor] = useState<DocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  const [form, setForm] = useState<TransactionInput>(() => ({ ...initialForm, type: requestedTransactionType(searchParams.get("type")) }));
+  const [form, setForm] = useState<TransactionInput>(() => createInitialForm(requestedTransactionType(searchParams.get("type"))));
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [isOpen, setIsOpen] = useState(searchParams.get("new") === "1");
   const [loading, setLoading] = useState(true);
@@ -60,6 +63,15 @@ export function TransactionsPage() {
 
   const activeAccounts = useMemo(() => accounts.filter((account) => account.status === "ACTIVE"), [accounts]);
   const activeCategories = useMemo(() => categories.filter((category) => category.status === "ACTIVE" && category.type === form.type), [categories, form.type]);
+  const hasActiveFilters = Boolean(
+    filters.startDate
+      || filters.endDate
+      || (filters.type && filters.type !== "ALL")
+      || filters.accountId
+      || filters.categoryId
+      || filters.minAmountInCents !== undefined
+      || filters.search?.trim(),
+  );
 
   const loadSupportData = useCallback(async () => {
     if (!user) return;
@@ -99,8 +111,7 @@ export function TransactionsPage() {
       const type = requestedTransactionType(searchParams.get("type"));
       setEditing(null);
       setForm({
-        ...initialForm,
-        type,
+        ...createInitialForm(type),
         accountId: activeAccounts[0]?.id ?? "",
         categoryId: categories.find((category) => category.status === "ACTIVE" && category.type === type)?.id ?? "",
       });
@@ -110,11 +121,12 @@ export function TransactionsPage() {
   }, [activeAccounts, categories, searchParams, setSearchParams]);
 
   function openCreate() {
+    const nextForm = createInitialForm();
     setEditing(null);
     setForm({
-      ...initialForm,
+      ...nextForm,
       accountId: activeAccounts[0]?.id ?? "",
-      categoryId: categories.find((category) => category.status === "ACTIVE" && category.type === initialForm.type)?.id ?? "",
+      categoryId: categories.find((category) => category.status === "ACTIVE" && category.type === nextForm.type)?.id ?? "",
     });
     setIsOpen(true);
   }
@@ -133,33 +145,36 @@ export function TransactionsPage() {
     setIsOpen(true);
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
+  async function handleSubmit() {
     if (!user) return;
-    try {
-      if (editing) {
-        await updateTransaction(editing.id, form, accounts, categories, user.uid);
-        setMessage("Lancamento atualizado.");
-      } else {
-        await createTransaction(user.uid, form, accounts, categories);
-        setMessage("Lancamento criado.");
+    await runAction("transaction:save", async () => {
+      try {
+        if (editing) {
+          await updateTransaction(editing.id, form, accounts, categories, user.uid);
+          setMessage("Lancamento atualizado.");
+        } else {
+          await createTransaction(user.uid, form, accounts, categories);
+          setMessage("Lancamento criado.");
+        }
+        setIsOpen(false);
+        await loadTransactions("reset");
+      } catch (error) {
+        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar o lancamento."));
       }
-      setIsOpen(false);
-      await loadTransactions("reset");
-    } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar o lancamento."));
-    }
+    });
   }
 
   async function handleDelete(transaction: Transaction) {
     if (!window.confirm("Excluir este lancamento? O saldo sera recalculado a partir do historico restante.")) return;
-    try {
-      await deleteTransaction(transaction.id);
-      setMessage("Lancamento excluido.");
-      await loadTransactions("reset");
-    } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel excluir o lancamento."));
-    }
+    await runAction(`transaction:delete:${transaction.id}`, async () => {
+      try {
+        await deleteTransaction(transaction.id);
+        setMessage("Lancamento excluido.");
+        await loadTransactions("reset");
+      } catch (error) {
+        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel excluir o lancamento."));
+      }
+    });
   }
 
   function setFormType(type: TransactionType) {
@@ -173,22 +188,29 @@ export function TransactionsPage() {
 
   return (
     <>
-      <PageHeader title="Transações" description="Registre receitas, despesas e transferências sem carregar todo o histórico." action={<Button onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Novo lançamento</Button>} />
+      <PageHeader title="Transações" description="Registre receitas, despesas e transferências sem carregar todo o histórico." action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Novo lançamento</Button>} />
       {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <Card className="mb-4">
         <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
-          <FormField id="filter-start" label="Inicio"><Input id="filter-start" type="date" onChange={(event) => setFilters({ ...filters, startDate: event.target.value ? new Date(`${event.target.value}T00:00:00.000Z`) : undefined })} /></FormField>
-          <FormField id="filter-end" label="Fim"><Input id="filter-end" type="date" onChange={(event) => setFilters({ ...filters, endDate: event.target.value ? new Date(`${event.target.value}T23:59:59.999Z`) : undefined })} /></FormField>
+          <FormField id="filter-start" label="Inicio"><Input id="filter-start" type="date" value={filters.startDate ? toDateInputValue(filters.startDate) : ""} onChange={(event) => setFilters({ ...filters, startDate: event.target.value ? new Date(`${event.target.value}T00:00:00.000Z`) : undefined })} /></FormField>
+          <FormField id="filter-end" label="Fim"><Input id="filter-end" type="date" value={filters.endDate ? toDateInputValue(filters.endDate) : ""} onChange={(event) => setFilters({ ...filters, endDate: event.target.value ? new Date(`${event.target.value}T23:59:59.999Z`) : undefined })} /></FormField>
           <FormField id="filter-type" label="Tipo"><Select id="filter-type" value={filters.type ?? "ALL"} onChange={(event) => setFilters({ ...filters, type: event.target.value as TransactionFilters["type"] })}><option value="ALL">Todos</option><option value="INCOME">Receita</option><option value="EXPENSE">Despesa</option><option value="TRANSFER">Transferencia</option></Select></FormField>
           <FormField id="filter-account" label="Conta"><Select id="filter-account" value={filters.accountId ?? ""} onChange={(event) => setFilters({ ...filters, accountId: event.target.value || undefined })}><option value="">Todas</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></FormField>
           <FormField id="filter-category" label="Categoria"><Select id="filter-category" value={filters.categoryId ?? ""} onChange={(event) => setFilters({ ...filters, categoryId: event.target.value || undefined })}><option value="">Todas</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select></FormField>
-          <FormField id="filter-min" label="Valor min."><CurrencyInput id="filter-min" onChange={(event) => setFilters({ ...filters, minAmountInCents: parseCurrencyToCents(event.target.value) || undefined })} /></FormField>
-          <FormField id="filter-search" label="Descricao"><Input id="filter-search" placeholder="Pesquisar" onChange={(event) => setFilters({ ...filters, search: event.target.value || undefined })} /></FormField>
+          <FormField id="filter-min" label="Valor min."><CurrencyInput id="filter-min" value={filters.minAmountInCents === undefined ? "" : formatCurrencyFromCents(filters.minAmountInCents)} onChange={(event) => setFilters({ ...filters, minAmountInCents: parseCurrencyToCents(event.target.value) || undefined })} /></FormField>
+          <FormField id="filter-search" label="Descricao"><Input id="filter-search" placeholder="Pesquisar" value={filters.search ?? ""} onChange={(event) => setFilters({ ...filters, search: event.target.value || undefined })} /></FormField>
         </div>
       </Card>
       <Card>
         {loading && transactions.length === 0 ? <LoadingState label="Carregando historico" /> : transactions.length === 0 ? (
-          <EmptyState title="Nenhum lancamento" description="Use o formulario rapido para registrar sua primeira movimentacao." icon={<ReceiptText className="h-6 w-6" aria-hidden="true" />} />
+          <EmptyState
+            action={hasActiveFilters
+              ? <Button onClick={() => setFilters({ type: "ALL" })} variant="secondary">Limpar filtros</Button>
+              : <Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Criar lançamento</Button>}
+            title={hasActiveFilters ? "Nenhum resultado" : "Nenhum lançamento"}
+            description={hasActiveFilters ? "Não encontramos lançamentos com os filtros atuais." : "Registre sua primeira movimentação para começar o histórico."}
+            icon={<ReceiptText className="h-6 w-6" aria-hidden="true" />}
+          />
         ) : (
           <>
             <div className="grid gap-3 md:hidden">
@@ -211,8 +233,8 @@ export function TransactionsPage() {
                         <p className="text-xs text-slate-500">{transaction.type === "TRANSFER" ? "Sem categoria" : category?.name ?? "-"}</p>
                       </div>
                       <div className="flex gap-1">
-                        <Button aria-label="Editar" className="px-2" variant="ghost" onClick={() => openEdit(transaction)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button>
-                        <Button aria-label="Excluir" className="px-2" variant="ghost" onClick={() => void handleDelete(transaction)}><Trash2 className="h-4 w-4" aria-hidden="true" /></Button>
+                        <Button aria-label="Editar" className="px-2" disabled={isActionPending()} variant="ghost" onClick={() => openEdit(transaction)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button>
+                        <Button aria-label="Excluir" className="px-2" disabled={isActionPending()} variant="ghost" onClick={() => void handleDelete(transaction)}><Trash2 className="h-4 w-4" aria-hidden="true" /></Button>
                       </div>
                     </div>
                   </div>
@@ -245,7 +267,7 @@ export function TransactionsPage() {
                         <td className="px-3 py-3">{transaction.type === "TRANSFER" ? `${account?.name ?? "-"} -> ${destination?.name ?? "-"}` : account?.name ?? "-"}</td>
                         <td className="px-3 py-3"><Badge variant={transaction.type === "INCOME" ? "success" : transaction.type === "EXPENSE" ? "danger" : "neutral"}>{transaction.type === "INCOME" ? "Receita" : transaction.type === "EXPENSE" ? "Despesa" : "Transferencia"}</Badge></td>
                         <td className="px-3 py-3 font-medium">{formatCurrencyFromCents(transaction.amountInCents)}</td>
-                        <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button aria-label="Editar" variant="ghost" onClick={() => openEdit(transaction)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button><Button aria-label="Excluir" variant="ghost" onClick={() => void handleDelete(transaction)}><Trash2 className="h-4 w-4" aria-hidden="true" /></Button></div></td>
+                        <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button aria-label="Editar" disabled={isActionPending()} variant="ghost" onClick={() => openEdit(transaction)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button><Button aria-label="Excluir" disabled={isActionPending()} variant="ghost" onClick={() => void handleDelete(transaction)}><Trash2 className="h-4 w-4" aria-hidden="true" /></Button></div></td>
                       </tr>
                     );
                   })}
@@ -256,20 +278,17 @@ export function TransactionsPage() {
           </>
         )}
       </Card>
-      <Modal isOpen={isOpen} title={editing ? "Editar lancamento" : "Novo lancamento"} onClose={() => setIsOpen(false)}>
-        <form className="grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField id="transaction-type" label="Tipo"><Select id="transaction-type" value={form.type} onChange={(event) => setFormType(event.target.value as TransactionType)}><option value="INCOME">Receita</option><option value="EXPENSE">Despesa</option><option value="TRANSFER">Transferencia</option></Select></FormField>
-            <FormField id="transaction-value" label="Valor"><CurrencyInput id="transaction-value" required value={formatCurrencyFromCents(form.amountInCents)} onChange={(event) => setForm({ ...form, amountInCents: parseCurrencyToCents(event.target.value) })} /></FormField>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField id="transaction-account" label={form.type === "TRANSFER" ? "Origem" : "Conta"}><Select id="transaction-account" required value={form.accountId} onChange={(event) => setForm({ ...form, accountId: event.target.value })}>{activeAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></FormField>
-            {form.type === "TRANSFER" ? <FormField id="transaction-destination" label="Destino"><Select id="transaction-destination" required value={form.destinationAccountId} onChange={(event) => setForm({ ...form, destinationAccountId: event.target.value })}><option value="">Selecione</option>{activeAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</Select></FormField> : <FormField id="transaction-category" label="Categoria"><Select id="transaction-category" required value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })}>{activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select></FormField>}
-          </div>
-          <FormField id="transaction-date" label="Data"><Input id="transaction-date" type="date" required value={toDateInputValue(form.date)} onChange={(event) => setForm({ ...form, date: new Date(`${event.target.value}T12:00:00.000Z`) })} /></FormField>
-          <FormField id="transaction-description" label="Descricao"><Textarea id="transaction-description" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></FormField>
-          <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button><Button type="submit">Salvar</Button></div>
-        </form>
+      <Modal isOpen={isOpen} title={editing ? "Editar lançamento" : "Novo lançamento"} onClose={() => setIsOpen(false)}>
+        <TransactionForm
+          accounts={activeAccounts}
+          categories={activeCategories}
+          form={form}
+          onCancel={() => setIsOpen(false)}
+          onChange={setForm}
+          onSubmit={handleSubmit}
+          onTypeChange={setFormType}
+          submitting={isActionPending("transaction:save")}
+        />
       </Modal>
     </>
   );

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
+import { EmptyState } from "../components/EmptyState";
 import { CategorySpendingChart, IncomeExpenseChart, TrendLineChart } from "../components/FinancialCharts";
 import { LoadingState } from "../components/LoadingState";
 import { PageHeader } from "../components/PageHeader";
@@ -126,7 +127,16 @@ export function ReportsPage() {
                 <FileText className="h-4 w-4 text-emerald-700" aria-hidden="true" />
                 <h2 className="text-base font-semibold">Lancamentos do periodo</h2>
               </div>
-              {analytics.transactions.length === 0 ? <p className="text-sm text-slate-500">Nenhum lancamento no periodo.</p> : (
+              {analytics.transactions.length === 0 ? (
+                <EmptyState
+                  action={period.preset !== "month" ? <Button onClick={() => setPeriod(getDefaultDashboardPeriod())} variant="secondary">Ver mês atual</Button> : undefined}
+                  className="mt-0"
+                  description="Não há movimentações no período selecionado. Ajuste o período para consultar outros dados."
+                  icon={<FileText className="h-5 w-5" aria-hidden="true" />}
+                  size="compact"
+                  title="Nenhum lançamento no período"
+                />
+              ) : (
                 <Table>
                   <thead>
                     <tr className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-800">

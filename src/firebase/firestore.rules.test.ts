@@ -336,6 +336,7 @@ describe("Firestore security rules", () => {
     const expenseRef = doc(dbA, "transactions", "workflow-expense");
     const incomeCategoryRef = doc(dbA, "categories", "workflow-income-category");
     const incomeRef = doc(dbA, "transactions", "workflow-income");
+    const summaryRef = doc(dbA, "monthlySummaries", `${userA}_2026-08`);
 
     await assertSucceeds(setDoc(accountRef, {
       ...accountData(userA),
@@ -380,11 +381,22 @@ describe("Firestore security rules", () => {
         accountId: "workflow-account",
         categoryId: "workflow-income-category",
       });
+      transaction.set(summaryRef, {
+        userId: userA,
+        createdAt: now,
+        updatedAt: now,
+        monthKey: "2026-08",
+        incomeInCents: increment(200000),
+        expenseInCents: increment(0),
+        transactionCount: increment(1),
+        categorySpending: {},
+      }, { merge: true });
     }));
 
     expect((await getDoc(accountRef)).data()?.currentBalanceInCents).toBe(290000);
     await assertSucceeds(getDoc(expenseRef));
     await assertSucceeds(getDoc(incomeRef));
+    expect((await getDoc(summaryRef)).data()?.incomeInCents).toBe(200000);
     await assertFails(getDoc(doc(dbB, "accounts", "workflow-account")));
     await assertFails(getDoc(doc(dbB, "categories", "workflow-category")));
     await assertFails(getDoc(doc(dbB, "transactions", "workflow-expense")));

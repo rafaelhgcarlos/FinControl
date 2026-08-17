@@ -39,6 +39,10 @@ const initialForm: TransactionInput = {
   description: "",
 };
 
+function requestedTransactionType(value: string | null): TransactionType {
+  return value === "INCOME" || value === "TRANSFER" ? value : "EXPENSE";
+}
+
 export function TransactionsPage() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -48,7 +52,7 @@ export function TransactionsPage() {
   const [filters, setFilters] = useState<TransactionFilters>({ type: "ALL" });
   const [cursor, setCursor] = useState<DocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  const [form, setForm] = useState<TransactionInput>(initialForm);
+  const [form, setForm] = useState<TransactionInput>(() => ({ ...initialForm, type: requestedTransactionType(searchParams.get("type")) }));
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [isOpen, setIsOpen] = useState(searchParams.get("new") === "1");
   const [loading, setLoading] = useState(true);
@@ -92,9 +96,18 @@ export function TransactionsPage() {
 
   useEffect(() => {
     if (searchParams.get("new") === "1") {
+      const type = requestedTransactionType(searchParams.get("type"));
+      setEditing(null);
+      setForm({
+        ...initialForm,
+        type,
+        accountId: activeAccounts[0]?.id ?? "",
+        categoryId: categories.find((category) => category.status === "ACTIVE" && category.type === type)?.id ?? "",
+      });
       setIsOpen(true);
+      setSearchParams({}, { replace: true });
     }
-  }, [searchParams]);
+  }, [activeAccounts, categories, searchParams, setSearchParams]);
 
   function openCreate() {
     setEditing(null);
@@ -104,7 +117,6 @@ export function TransactionsPage() {
       categoryId: categories.find((category) => category.status === "ACTIVE" && category.type === initialForm.type)?.id ?? "",
     });
     setIsOpen(true);
-    setSearchParams({});
   }
 
   function openEdit(transaction: Transaction) {

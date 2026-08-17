@@ -1,6 +1,6 @@
 import { Archive, Building2, CreditCard, Pencil, Plus, ReceiptText, Trash2, WalletCards } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
@@ -60,6 +60,7 @@ type CardTab = "invoice" | "purchases" | "installments" | "history";
 export function CardsPage() {
   const { user } = useAuth();
   const { cardId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [cards, setCards] = useState<CreditCardType[]>([]);
   const [invoices, setInvoices] = useState<CardInvoice[]>([]);
   const [installments, setInstallments] = useState<CardInstallment[]>([]);
@@ -118,6 +119,15 @@ export function CardsPage() {
 
   const selectedCard = useMemo(() => cards.find((card) => card.id === cardId), [cardId, cards]);
   const expenseCategories = useMemo(() => categories.filter((category) => category.type === "EXPENSE" && category.status === "ACTIVE"), [categories]);
+
+  useEffect(() => {
+    if (!loading && searchParams.get("new") === "purchase") {
+      setEditingPurchaseId(null);
+      setPurchaseForm({ ...emptyPurchaseForm(), cardId: cards.find((card) => card.status === "ACTIVE")?.id ?? "" });
+      setModal("purchase");
+      setSearchParams({}, { replace: true });
+    }
+  }, [cards, loading, searchParams, setSearchParams]);
 
   function openCardForm(card?: CreditCardType) {
     setEditingCardId(card?.id ?? null);

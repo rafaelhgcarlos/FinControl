@@ -65,7 +65,7 @@ export function DashboardPage() {
         eyebrow={`${formatDatePtBr(period.startDate)} - ${formatDatePtBr(period.endDate)}`}
         title={profile?.displayName ? `Ola, ${profile.displayName.split(" ")[0]}` : "Visao financeira"}
         description="Seu dinheiro em perspectiva, com os sinais que merecem atencao agora."
-        action={<div className="flex w-full flex-col gap-3 xl:w-auto xl:flex-row xl:items-start"><PeriodFilter period={period} onPresetChange={handlePresetChange} onCustomChange={handleCustomChange} /><div className="flex gap-2"><ThemeSwitcher /><Button asChild className="min-w-0 flex-1 xl:flex-none"><Link to="/app/transactions?new=1"><Plus className="h-4 w-4" aria-hidden="true" />Novo lancamento</Link></Button></div></div>}
+        action={<div className="flex w-full flex-col gap-3 xl:w-auto xl:flex-row xl:items-start"><PeriodFilter period={period} onPresetChange={handlePresetChange} onCustomChange={handleCustomChange} /><div className="flex gap-2"><ThemeSwitcher /><Button asChild className="min-w-0 flex-1 xl:flex-none"><Link to="/app?newEntry=1"><Plus className="h-4 w-4" aria-hidden="true" />Novo lancamento</Link></Button></div></div>}
       />
       {error ? <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-100">{error}</div> : null}
       {loading ? <LoadingState label="Carregando dashboard" /> : analytics ? (

@@ -14,6 +14,9 @@ Base do MVP do FinControl em React, TypeScript, Vite, Firebase e Tailwind CSS.
 - `npm run build`: valida TypeScript strict e gera `dist`
 - `npm run lint`: executa ESLint
 - `npm run test`: executa Vitest
+- `npm run test:rules`: valida Security Rules e isolamento usando o emulador do Firestore
+- `npm run test:e2e`: executa a jornada integrada em Chromium com Auth e Firestore locais
+- `npm run test:mvp`: executa lint, testes unitarios, Security Rules, jornada E2E e build
 - `npm run firebase:emulators`: inicia os emuladores locais de Authentication e Firestore
 - `npm run firebase:deploy-rules`: publica as regras do Firestore no projeto configurado
 
@@ -24,6 +27,29 @@ O MVP deve permanecer no Firebase Spark. A configuracao inicial usa Authenticati
 Copie `.env.example` para `.env.local` e preencha as variaveis do projeto Firebase. Quando `VITE_USE_FIREBASE_EMULATORS=true`, inicie `npm run firebase:emulators` antes de `npm run dev`. Os emuladores usam Auth em `127.0.0.1:9099` e Firestore em `127.0.0.1:8080`.
 
 Para usar o Firebase remoto, autentique o CLI com `firebase login` e publique as regras com `npm run firebase:deploy-rules`.
+
+## Validacao completa do MVP
+
+A jornada da issue #17 usa apenas o projeto descartavel `demo-fincontrol` e os emuladores locais. Ela nao le nem grava dados de producao e permanece compativel com o plano Spark.
+
+Na primeira execucao, instale o Chromium usado pelo Playwright:
+
+```bash
+npx playwright install chromium
+```
+
+Depois execute toda a validacao:
+
+```bash
+npm ci
+npm run test:mvp
+```
+
+A suite cria usuarios unicos e descartaveis a cada execucao e cobre cadastro, contas, categorias, receitas, despesas, transferencias, dashboard, historico, cartoes, compra parcelada, fatura, recorrencias, orcamentos, metas, calendario, relatorios e configuracoes. Tambem verifica saldos e valores agregados, isolamento entre dois usuarios, modo offline, dark mode, cancelamento e o launcher global em desktop e smartphone. Os estados unitarios e de erro continuam cobertos pelo Vitest; as Security Rules e o isolamento por usuario sao executados em `test:rules`.
+
+Os dados dos emuladores sao descartados ao final de `test:e2e`. Relatorios HTML e traces de falha ficam em `playwright-report/` e `test-results/`, ambos ignorados pelo Git.
+
+As issues #25, #27 e #28 ainda representam evolucoes visuais posteriores. A jornada usa nomes acessiveis e resultados financeiros como contratos para permanecer valida durante esses redesenhos.
 
 ### Administracao no plano Spark
 

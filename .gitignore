@@ -4,9 +4,13 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+# Configuracao ficticia e segura usada pelos testes automatizados.
+!.env.test
 .firebase
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
 coverage
+playwright-report
+test-results
 *.tsbuildinfo

@@ -99,7 +99,7 @@ export function ReportsPage() {
     <>
       <PageHeader
         eyebrow={`${formatDatePtBr(period.startDate)} - ${formatDatePtBr(period.endDate)}`}
-        title="Relatorios"
+        title="Relatórios"
         description="Analise receitas, despesas, categorias e evolucao financeira por periodo."
         action={<div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-start"><PeriodFilter period={period} onPresetChange={handlePresetChange} onCustomChange={handleCustomChange} /><div className="flex gap-2"><Button disabled={reconciling || !analytics} onClick={() => void reconcileSummaries()} variant="secondary">{reconciling ? "Reconciliando..." : "Reconciliar"}</Button><Button disabled={!analytics || analytics.transactions.length === 0} onClick={exportCsv} variant="secondary">CSV</Button><Button disabled={!analytics} onClick={() => window.print()} variant="secondary">PDF</Button></div></div>}
       />

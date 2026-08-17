@@ -8,20 +8,7 @@ import { BottomNavigation } from "./BottomNavigation";
 import { Button } from "./Button";
 import { Sidebar } from "./Sidebar";
 import { NewEntryLauncher, type NewEntryDestination } from "./NewEntryLauncher";
-
-const titles: Record<string, string> = {
-  "/app": "Visao geral",
-  "/app/transactions": "Historico",
-  "/app/recurring": "Recorrencias",
-  "/app/accounts": "Contas",
-  "/app/categories": "Categorias",
-  "/app/cards": "Cartoes",
-  "/app/budgets": "Orcamentos",
-  "/app/goals": "Metas",
-  "/app/calendar": "Calendario",
-  "/app/reports": "Relatorios",
-  "/app/settings": "Configuracoes",
-};
+import { getNavigationTitle } from "./navigation";
 
 export function AppShell() {
   const { profile } = useAuth();
@@ -30,7 +17,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
-  const title = titles[location.pathname] ?? "FinControl";
+  const title = getNavigationTitle(location.pathname);
   const syncLabel = sync.status === "offline" ? "Offline" : sync.status === "syncing" ? "Sincronizando" : "Sincronizado";
   const initials = (profile?.displayName || profile?.email || "FC")
     .split(/\s|@/)
@@ -59,7 +46,7 @@ export function AppShell() {
     <div className="min-h-screen bg-[#f4f6f8] text-slate-950 dark:bg-[#0b0f14] dark:text-slate-50">
       <div className="flex min-h-screen w-full">
         <Sidebar />
-        <main className="flex min-w-0 flex-1 flex-col pb-24 lg:pb-0">
+        <main className="flex min-w-0 flex-1 flex-col pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0">
           <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-slate-800/80 dark:bg-[#0b0f14]/90">
             <div className="flex min-h-[4.25rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8 xl:px-10">
               <div className="flex min-w-0 items-center gap-3">

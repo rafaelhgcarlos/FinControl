@@ -176,7 +176,7 @@ export function RecurringTransactionsPage() {
   return (
     <>
       <PageHeader
-        title="Recorrencias"
+        title="Recorrências"
         description="Automatize receitas e despesas quando o app for aberto, sem tarefas periodicas no backend."
         action={<div className="flex gap-2"><Button variant="secondary" onClick={() => void handleProcessDue()} disabled={processing}><RefreshCw className="h-4 w-4" aria-hidden="true" />Processar</Button><Button onClick={openCreate}><Repeat className="h-4 w-4" aria-hidden="true" />Nova recorrencia</Button></div>}
       />

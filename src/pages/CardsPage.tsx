@@ -322,7 +322,7 @@ export function CardsPage() {
   return (
     <>
       <PageHeader
-        title={selectedCard ? selectedCard.name : "Cartoes"}
+        title={selectedCard ? selectedCard.name : "Cartões"}
         description={selectedCard ? "Fatura atual, compras, parcelas e historico do cartao selecionado." : "Controle seus cartoes sem misturar faturas de bancos diferentes."}
         action={<div className="flex flex-wrap gap-2">{selectedCard ? <Button asChild variant="secondary"><Link to="/app/cards">Voltar</Link></Button> : null}<Button onClick={() => openCardForm(selectedCard)}><Plus className="h-4 w-4" aria-hidden="true" />{selectedCard ? "Editar cartao" : "Novo cartao"}</Button>{selectedCard ? <Button variant="secondary" onClick={() => openPurchase(selectedCard.id)}><ReceiptText className="h-4 w-4" aria-hidden="true" />Nova compra</Button> : null}</div>}
       />

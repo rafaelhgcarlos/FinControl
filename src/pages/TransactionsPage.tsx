@@ -173,7 +173,7 @@ export function TransactionsPage() {
 
   return (
     <>
-      <PageHeader title="Historico" description="Registre receitas, despesas e transferencias sem carregar todo o historico." action={<Button onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Novo lancamento</Button>} />
+      <PageHeader title="Transações" description="Registre receitas, despesas e transferências sem carregar todo o histórico." action={<Button onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Novo lançamento</Button>} />
       {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <Card className="mb-4">
         <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">

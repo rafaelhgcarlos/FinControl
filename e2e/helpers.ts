@@ -17,7 +17,7 @@ export async function registerDisposableUser(page: Page, suffix: string) {
 
 export async function openGlobalLauncher(page: Page, mobile = false) {
   const trigger = mobile
-    ? page.getByRole("navigation", { name: "Navegacao inferior" }).getByRole("button", { name: "Lancar" })
+    ? page.getByRole("navigation", { name: "Navegação inferior" }).getByRole("button", { name: "Lançar" })
     : page.locator("main > header").getByRole("button", { name: "Novo lancamento" });
   await trigger.click();
   await expect(page.getByRole("dialog", { name: "Novo lancamento" })).toBeVisible();

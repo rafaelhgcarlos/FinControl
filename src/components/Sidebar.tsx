@@ -1,26 +1,7 @@
-import { BarChart3, CalendarDays, CreditCard, Gauge, Landmark, PiggyBank, ReceiptText, Repeat, Settings, ShieldCheck, Tags, Target, WalletCards } from "lucide-react";
+import { ShieldCheck, WalletCards } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 import { useAdmin } from "../contexts/AdminContext";
-
-const groups = [
-  { label: "Visao geral", items: [
-    { label: "Inicio", to: "/app", icon: Gauge },
-    { label: "Historico", to: "/app/transactions", icon: ReceiptText },
-    { label: "Contas", to: "/app/accounts", icon: Landmark },
-    { label: "Cartoes", to: "/app/cards", icon: CreditCard },
-  ] },
-  { label: "Planejamento", items: [
-    { label: "Recorrencias", to: "/app/recurring", icon: Repeat },
-    { label: "Categorias", to: "/app/categories", icon: Tags },
-    { label: "Orcamentos", to: "/app/budgets", icon: PiggyBank },
-    { label: "Metas", to: "/app/goals", icon: Target },
-    { label: "Calendario", to: "/app/calendar", icon: CalendarDays },
-  ] },
-  { label: "Analise", items: [
-    { label: "Relatorios", to: "/app/reports", icon: BarChart3 },
-    { label: "Configuracoes", to: "/app/settings", icon: Settings },
-  ] },
-];
+import { navigationGroups } from "./navigation";
 
 export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
   const { isAdmin } = useAdmin();
@@ -32,11 +13,11 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
         </span>
         <span><span className="text-slate-950 dark:text-white">Fin</span><span className="text-emerald-600 dark:text-emerald-400">Control</span></span>
       </Link>
-      <nav aria-label="Navegacao principal" className="scrollbar-none min-h-0 flex-1 space-y-5 overflow-y-auto">
-        {groups.map((group) => (
+      <nav aria-label="Navegação principal" className="scrollbar-none min-h-0 flex-1 space-y-4 overflow-y-auto">
+        {navigationGroups.map((group) => (
           <div key={group.label}>
-            <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{group.label}</p>
-            <div className="space-y-1">
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">{group.label}</p>
+            <div className="space-y-0.5">
               {group.items.map(({ icon: Icon, label, to }) => (
                 <NavLink
                   key={to}

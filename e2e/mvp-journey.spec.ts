@@ -84,7 +84,7 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
   await expect(page.getByText("Meta E2E")).toBeVisible();
   await expect(page.getByText("20%")).toBeVisible();
 
-  for (const [path, heading] of [["/app/calendar", "Calendario financeiro"], ["/app/reports", "Relatorios"], ["/app/settings", "Configuracoes"]] as const) {
+  for (const [path, heading] of [["/app/calendar", "Calendário financeiro"], ["/app/reports", "Relatórios"], ["/app/settings", "Configurações"]] as const) {
     await page.goto(path);
     await expect(page.locator("main > div > header").getByRole("heading", { name: heading })).toBeVisible();
   }

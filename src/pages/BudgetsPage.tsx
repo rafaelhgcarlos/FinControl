@@ -70,7 +70,7 @@ export function BudgetsPage() {
   }
 
   return <>
-    <PageHeader title="Orcamentos" description="Defina limites por categoria e acompanhe o consumo no periodo." action={<Button onClick={openCreate}><Plus className="h-4 w-4" />Novo orcamento</Button>} />
+    <PageHeader title="Orçamentos" description="Defina limites por categoria e acompanhe o consumo no periodo." action={<Button onClick={openCreate}><Plus className="h-4 w-4" />Novo orcamento</Button>} />
     {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
     {error ? <ErrorState message={error} /> : loading ? <Card><LoadingState label="Carregando orcamentos" /></Card> : budgets.length === 0 ? <Card><EmptyState title="Nenhum orcamento" description="Crie um limite para acompanhar seus gastos por categoria." icon={<PiggyBank className="h-6 w-6" />} /></Card> :
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{budgets.map((item) => {

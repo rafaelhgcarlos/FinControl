@@ -96,7 +96,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Configuracoes" description="Gerencie perfil, preferencias e acesso da conta." />
+      <PageHeader title="Configurações" description="Gerencie perfil, preferencias e acesso da conta." />
       {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <Card>

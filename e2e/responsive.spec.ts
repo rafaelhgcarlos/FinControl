@@ -21,8 +21,15 @@ test("launcher, cancelamento, responsividade e dark mode", async ({ page }, test
   await page.getByLabel("Tema").selectOption("dark");
   await expect(page.locator("html")).toHaveClass(/dark/);
   if (mobile) {
-    await expect(page.getByRole("navigation", { name: "Navegacao inferior" })).toBeVisible();
+    const bottomNavigation = page.getByRole("navigation", { name: "Navegação inferior" });
+    await expect(bottomNavigation).toBeVisible();
+    await expect(bottomNavigation.getByRole("link", { name: "Cartões" })).toBeVisible();
+    await bottomNavigation.getByRole("button", { name: "Mais" }).click();
+    const moreDialog = page.getByRole("dialog", { name: "Mais opções" });
+    await expect(moreDialog.getByRole("link", { name: "Categorias" })).toBeVisible();
+    await expect(moreDialog.getByRole("link", { name: "Configurações" })).toBeVisible();
+    await moreDialog.getByRole("button", { name: "Fechar" }).click();
   } else {
-    await expect(page.getByRole("navigation", { name: "Navegacao principal" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Navegação principal" })).toBeVisible();
   }
 });

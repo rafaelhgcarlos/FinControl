@@ -1,6 +1,6 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { connectFirestoreEmulator, getFirestore, type Firestore } from "firebase/firestore";
+import { connectFirestoreEmulator, enableMultiTabIndexedDbPersistence, getFirestore, type Firestore } from "firebase/firestore";
 import { connectAuthEmulator } from "firebase/auth";
 import { resolveFirebaseConfig } from "./env";
 
@@ -14,6 +14,9 @@ const firebaseConfig = resolveFirebaseConfig({
 export const firebaseApp: FirebaseApp = initializeApp(firebaseConfig);
 export const firebaseAuth: Auth = getAuth(firebaseApp);
 export const firestore: Firestore = getFirestore(firebaseApp);
+export const offlinePersistenceReady = import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true"
+  ? Promise.resolve(false)
+  : enableMultiTabIndexedDbPersistence(firestore).then(() => true).catch(() => false);
 
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true") {
   connectAuthEmulator(firebaseAuth, "http://127.0.0.1:9099", { disableWarnings: true });

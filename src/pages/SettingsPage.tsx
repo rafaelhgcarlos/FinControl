@@ -25,6 +25,8 @@ export function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [deletionPassword, setDeletionPassword] = useState("");
+  const [deletionProgress, setDeletionProgress] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -77,12 +79,16 @@ export function SettingsPage() {
   async function deleteAccount() {
     if (!window.confirm("Excluir sua conta e todos os dados financeiros associados? Esta acao nao pode ser desfeita.")) return;
     setBusy(true);
+    setMessage(null);
+    setDeletionProgress("Validando sua identidade antes de excluir os dados.");
     try {
-      await deleteUserAccount();
+      await deleteUserAccount(deletionPassword, (progress) => {
+        setDeletionProgress(`Excluindo dados: ${progress.completedCollections} de ${progress.totalCollections} colecoes, ${progress.deletedDocuments} documentos removidos.`);
+      });
       await logout();
       navigate("/", { replace: true });
     } catch (error) {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel excluir sua conta."));
+      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel excluir sua conta. Confirme a senha e tente novamente."));
     } finally {
       setBusy(false);
     }
@@ -149,7 +155,11 @@ export function SettingsPage() {
           </form>
           <div className="mt-5 grid gap-2">
             <Button className="w-full justify-start" onClick={() => void signOut()} variant="secondary"><LogOut className="h-4 w-4" aria-hidden="true" />Sair da conta</Button>
-            <Button className="w-full justify-start" disabled={busy} onClick={() => void deleteAccount()} variant="danger"><Trash2 className="h-4 w-4" aria-hidden="true" />Excluir conta</Button>
+            <FormField id="deletion-password" label="Senha para excluir a conta">
+              <Input id="deletion-password" autoComplete="current-password" type="password" value={deletionPassword} onChange={(event) => setDeletionPassword(event.target.value)} />
+            </FormField>
+            {deletionProgress ? <p aria-live="polite" className="text-xs text-slate-500">{deletionProgress}</p> : null}
+            <Button className="w-full justify-start" disabled={busy || !deletionPassword} onClick={() => void deleteAccount()} variant="danger"><Trash2 className="h-4 w-4" aria-hidden="true" />{busy && deletionProgress ? "Excluindo dados..." : "Excluir conta"}</Button>
           </div>
         </Card>
       </div>

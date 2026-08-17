@@ -24,3 +24,9 @@ O MVP deve permanecer no Firebase Spark. A configuracao inicial usa Authenticati
 Copie `.env.example` para `.env.local` e preencha as variaveis do projeto Firebase. Quando `VITE_USE_FIREBASE_EMULATORS=true`, inicie `npm run firebase:emulators` antes de `npm run dev`. Os emuladores usam Auth em `127.0.0.1:9099` e Firestore em `127.0.0.1:8080`.
 
 Para usar o Firebase remoto, autentique o CLI com `firebase login` e publique as regras com `npm run firebase:deploy-rules`.
+
+### Administracao no plano Spark
+
+O papel administrativo nao pode ser concedido pelo cliente. Para promover um usuario, crie manualmente pelo Console do Firebase o documento `admins/{uid}` com `active: true` e `createdAt` como timestamp. As Security Rules permitem que o usuario leia somente a propria associacao e impedem criacao ou alteracao pelo aplicativo.
+
+A metrica opcional de usuarios cadastrados deve ser publicada manualmente em `adminMetrics/overview`, usando apenas `registeredUsers` e `updatedAt`. Administradores gerenciam categorias globais e consultam auditoria, mas continuam sem acesso às colecoes financeiras privadas. Cada alteracao administrativa grava no mesmo lote apenas `userId`, acao, entidade, ID e timestamp.

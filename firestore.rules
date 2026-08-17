@@ -10,6 +10,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true;
+    }
+
     function ownsExistingResource() {
       return signedIn() && resource.data.userId == request.auth.uid;
     }
@@ -262,6 +268,28 @@ service cloud.firestore {
           || request.resource.data.currentAmountInCents >= request.resource.data.targetAmountInCents);
     }
 
+    function validGlobalCategory() {
+      return request.resource.data.keys().hasAll(['name', 'type', 'icon', 'color', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['name', 'type', 'icon', 'color', 'status', 'createdAt', 'updatedAt'])
+        && request.resource.data.name is string
+        && request.resource.data.type in ['INCOME', 'EXPENSE']
+        && request.resource.data.icon is string
+        && request.resource.data.color is string
+        && request.resource.data.status in ['ACTIVE', 'BLOCKED']
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
+    function validAuditLog() {
+      return request.resource.data.keys().hasAll(['userId', 'action', 'entity', 'entityId', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['userId', 'action', 'entity', 'entityId', 'createdAt'])
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.action is string
+        && request.resource.data.entity is string
+        && request.resource.data.entityId is string
+        && request.resource.data.createdAt is timestamp;
+    }
+
     function validGenericPrivateDocument() {
       let required = ['userId', 'createdAt', 'updatedAt'];
       let optional = [
@@ -333,7 +361,32 @@ service cloud.firestore {
       allow read: if signedInAs(userId);
       allow create: if signedInAs(userId) && validUserProfileCreate(userId);
       allow update: if signedInAs(userId) && validUserProfileUpdate(userId);
+      allow delete: if signedInAs(userId);
+    }
+
+    match /admins/{userId} {
+      allow get: if signedInAs(userId);
+      allow delete: if signedInAs(userId);
+      allow list, create, update: if false;
+    }
+
+    match /adminMetrics/{documentId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /globalCategories/{documentId} {
+      allow read: if signedIn();
+      allow create: if isAdmin() && validGlobalCategory();
+      allow update: if isAdmin() && validGlobalCategory()
+        && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if false;
+    }
+
+    match /auditLogs/{documentId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && validAuditLog();
+      allow update, delete: if false;
     }
 
     match /accounts/{documentId} {
@@ -351,7 +404,7 @@ service cloud.firestore {
         && userIdUnchanged()
         && validCategory()
         && (!('isDefault' in resource.data) || !resource.data.isDefault || request.resource.data.isDefault == true);
-      allow delete: if false;
+      allow delete: if ownsExistingResource();
     }
 
     match /transactions/{documentId} {
@@ -365,7 +418,7 @@ service cloud.firestore {
       allow read: if ownsExistingResource();
       allow create: if ownsIncomingResource() && validRecurringTransaction();
       allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validRecurringTransaction();
-      allow delete: if false;
+      allow delete: if ownsExistingResource();
     }
 
     match /monthlySummaries/{documentId} {
@@ -379,14 +432,14 @@ service cloud.firestore {
       allow read: if ownsExistingResource();
       allow create: if ownsIncomingResource() && validBudget();
       allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validBudget();
-      allow delete: if false;
+      allow delete: if ownsExistingResource();
     }
 
     match /goals/{documentId} {
       allow read: if ownsExistingResource();
       allow create: if ownsIncomingResource() && validGoal();
       allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validGoal();
-      allow delete: if false;
+      allow delete: if ownsExistingResource();
     }
 
     match /cards/{documentId} {

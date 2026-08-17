@@ -8,11 +8,13 @@ const messages: Record<string, string> = {
   "already-exists": "Este registro ja existe.",
   "failed-precondition": "Indice ou regra do Firebase pendente. Verifique a configuracao do Firestore.",
   "invalid-argument": "Algum campo foi enviado em formato invalido.",
+  "invalid-credential": "A senha informada esta incorreta.",
+  "requires-recent-login": "Por seguranca, confirme sua senha e tente novamente.",
 };
 
 export function getFriendlyFirebaseError(error: unknown, fallback = "Nao foi possivel concluir a operacao.") {
   if (error instanceof FirebaseError) {
-    return messages[error.code.replace("firestore/", "")] ?? fallback;
+    return messages[error.code.replace(/^(firestore|auth)\//, "")] ?? fallback;
   }
   if (error instanceof Error && error.message) {
     return error.message;

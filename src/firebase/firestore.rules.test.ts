@@ -242,13 +242,13 @@ describe("Firestore security rules", () => {
     await assertFails(setDoc(doc(dbA, "categories", "invalid-category"), invalidCategory));
   });
 
-  it("prevents deleting categories and changing default category ownership flags incorrectly", async () => {
+  it("allows owners to delete categories for account cleanup and protects default flags", async () => {
     await seedPrivateDoc("categories", "category-a", { ...categoryData(userA), isDefault: true });
     const dbA = authedDb(userA);
 
     await assertSucceeds(updateDoc(doc(dbA, "categories", "category-a"), { status: "ARCHIVED", updatedAt: now }));
     await assertFails(updateDoc(doc(dbA, "categories", "category-a"), { isDefault: false, updatedAt: now }));
-    await assertFails(deleteDoc(doc(dbA, "categories", "category-a")));
+    await assertSucceeds(deleteDoc(doc(dbA, "categories", "category-a")));
   });
 
   it("allows repairing legacy owned categories and accounts with valid private schemas", async () => {
@@ -318,6 +318,7 @@ describe("Firestore security rules", () => {
 
     const storedProfile = await getDoc(doc(dbA, "users", userA));
     expect(storedProfile.exists()).toBe(true);
+    await assertSucceeds(deleteDoc(doc(dbA, "users", userA)));
   });
 
   it("denies undeclared collections by default", async () => {
@@ -565,7 +566,7 @@ describe("Firestore security rules", () => {
       categoryId: "missing-category",
     }));
     await assertFails(getDoc(doc(dbB, "recurringTransactions", "rent")));
-    await assertFails(deleteDoc(doc(dbA, "recurringTransactions", "rent")));
+    await assertSucceeds(deleteDoc(doc(dbA, "recurringTransactions", "rent")));
   });
 
   it("protects budgets and validates their expense category and period", async () => {
@@ -577,7 +578,7 @@ describe("Firestore security rules", () => {
     await assertFails(setDoc(doc(dbA, "budgets", "spoof"), budgetData(userB)));
     await assertFails(setDoc(doc(dbA, "budgets", "invalid"), { ...budgetData(userA), endDate: Timestamp.fromDate(new Date("2026-07-31T12:00:00.000Z")) }));
     await assertSucceeds(updateDoc(doc(dbA, "budgets", "monthly"), { status: "ARCHIVED", updatedAt: now }));
-    await assertFails(deleteDoc(doc(dbA, "budgets", "monthly")));
+    await assertSucceeds(deleteDoc(doc(dbA, "budgets", "monthly")));
   });
 
   it("protects goals and accepts completion only after the target", async () => {
@@ -589,7 +590,34 @@ describe("Firestore security rules", () => {
     await assertFails(updateDoc(doc(dbA, "goals", "reserve"), { status: "COMPLETED", updatedAt: now }));
     await assertSucceeds(updateDoc(doc(dbA, "goals", "reserve"), { currentAmountInCents: 500000, status: "COMPLETED", updatedAt: now }));
     await assertSucceeds(updateDoc(doc(dbA, "goals", "reserve"), { status: "ARCHIVED", updatedAt: now }));
-    await assertFails(deleteDoc(doc(dbA, "goals", "reserve")));
+    await assertSucceeds(deleteDoc(doc(dbA, "goals", "reserve")));
+  });
+
+  it("authorizes administration without granting access to private finances", async () => {
+    await seedPrivateDoc("admins", userA, { active: true, createdAt: now });
+    await seedPrivateDoc("accounts", "private-account", accountData(userB));
+    await seedPrivateDoc("adminMetrics", "overview", { registeredUsers: 12, updatedAt: now });
+    const adminDb = authedDb(userA);
+    const commonDb = authedDb(userB);
+    const publicDb = testEnv.unauthenticatedContext().firestore();
+    const globalCategory = { name: "Moradia", type: "EXPENSE", icon: "Home", color: "#059669", status: "ACTIVE", createdAt: now, updatedAt: now };
+    const audit = { userId: userA, action: "CREATE", entity: "globalCategory", entityId: "housing", createdAt: now };
+
+    await assertSucceeds(getDoc(doc(adminDb, "admins", userA)));
+    await assertFails(getDoc(doc(commonDb, "admins", userA)));
+    await assertFails(setDoc(doc(adminDb, "admins", userB), { active: true, createdAt: now }));
+    await assertSucceeds(getDoc(doc(adminDb, "adminMetrics", "overview")));
+    await assertFails(getDoc(doc(commonDb, "adminMetrics", "overview")));
+    await assertSucceeds(setDoc(doc(adminDb, "globalCategories", "housing"), globalCategory));
+    await assertSucceeds(getDoc(doc(commonDb, "globalCategories", "housing")));
+    await assertFails(getDoc(doc(publicDb, "globalCategories", "housing")));
+    await assertFails(setDoc(doc(commonDb, "globalCategories", "invader"), globalCategory));
+    await assertSucceeds(setDoc(doc(adminDb, "auditLogs", "event"), audit));
+    await assertFails(setDoc(doc(commonDb, "auditLogs", "event-2"), { ...audit, userId: userB }));
+    await assertFails(updateDoc(doc(adminDb, "auditLogs", "event"), { action: "ALTERED" }));
+    await assertFails(deleteDoc(doc(adminDb, "auditLogs", "event")));
+    await assertFails(getDoc(doc(adminDb, "accounts", "private-account")));
+    await assertSucceeds(deleteDoc(doc(adminDb, "admins", userA)));
   });
 
   it("allows monthly summary increments only for the authenticated owner", async () => {

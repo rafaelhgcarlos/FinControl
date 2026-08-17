@@ -1,5 +1,6 @@
-import { BarChart3, CalendarDays, CreditCard, Gauge, Landmark, PiggyBank, ReceiptText, Repeat, Settings, Tags, Target, WalletCards } from "lucide-react";
+import { BarChart3, CalendarDays, CreditCard, Gauge, Landmark, PiggyBank, ReceiptText, Repeat, Settings, ShieldCheck, Tags, Target, WalletCards } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
+import { useAdmin } from "../contexts/AdminContext";
 
 const groups = [
   { label: "Visao geral", items: [
@@ -22,6 +23,7 @@ const groups = [
 ];
 
 export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
+  const { isAdmin } = useAdmin();
   return (
     <aside className={`${mobile ? "flex" : "sticky top-0 hidden lg:flex"} h-screen w-full flex-col border-r border-slate-200/80 bg-white px-4 py-5 dark:border-slate-800/80 dark:bg-[#10151c] lg:w-[17rem] lg:shrink-0`}>
       <Link to="/app" onClick={onNavigate} className="mb-7 flex items-center gap-3 px-2 text-lg font-bold">
@@ -57,6 +59,7 @@ export function Sidebar({ mobile = false, onNavigate }: { mobile?: boolean; onNa
           </div>
         ))}
       </nav>
+      {isAdmin ? <NavLink to="/admin" onClick={onNavigate} className="mt-3 flex min-h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"><ShieldCheck className="h-[18px] w-[18px]" />Administracao</NavLink> : null}
       <div className="mt-4 rounded-lg bg-slate-50 px-3 py-3 dark:bg-slate-900/80">
         <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Organize hoje</p>
         <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-500">Decisoes melhores com seus numeros em ordem.</p>

@@ -1,15 +1,14 @@
-import { Landmark } from "lucide-react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
-import { ProtectedRoute, PublicOnlyRoute } from "../components/ProtectedRoute";
+import { AdminRoute, ProtectedRoute, PublicOnlyRoute } from "../components/ProtectedRoute";
 import { AccountsPage } from "../pages/AccountsPage";
+import { AdminPage } from "../pages/AdminPage";
 import { ForgotPasswordPage, LoginPage, RegisterPage } from "../pages/AuthPages";
 import { CategoriesPage } from "../pages/CategoriesPage";
 import { CardsPage } from "../pages/CardsPage";
 import { BudgetsPage } from "../pages/BudgetsPage";
 import { CalendarPage } from "../pages/CalendarPage";
 import { DashboardPage } from "../pages/DashboardPage";
-import { FeaturePage } from "../pages/FeaturePage";
 import { LandingPage } from "../pages/LandingPage";
 import { GoalsPage } from "../pages/GoalsPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
@@ -42,7 +41,7 @@ export function AppRoutes() {
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
-        <Route path="/admin" element={<FeaturePage title="Administracao" description="Area administrativa restrita." icon={Landmark} />} />
+        <Route element={<AdminRoute />}><Route path="/admin" element={<AdminPage />} /></Route>
       </Route>
       <Route path="/404" element={<NotFoundPage />} />
       <Route path="*" element={<Navigate to="/404" replace />} />

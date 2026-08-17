@@ -1,8 +1,8 @@
 import { Timestamp, collection, doc, getDocs, limit, query, runTransaction, setDoc, updateDoc, where } from "firebase/firestore";
-import { collections } from "../firebase/collections";
-import { firestore } from "../firebase/config";
-import type { CreditCard, CreditCardBrand, CreditCardStatus } from "../types/creditCard";
-import { createConverter } from "./firestoreConverters";
+import { collections } from "../../../firebase/collections";
+import { firestore } from "../../../firebase/config";
+import type { CreditCard, CreditCardBrand, CreditCardStatus } from "../../../types/creditCard";
+import { createConverter } from "../../../services/firestoreConverters";
 
 const cardConverter = createConverter<CreditCard>();
 

@@ -14,7 +14,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Select } from "../components/Select";
 import { Table } from "../components/Table";
 import { Toast } from "../components/Toast";
-import { LoadingState } from "../components/LoadingState";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { TransactionForm } from "../components/TransactionForm";
 import { useAuth } from "../contexts/AuthContext";
 import { useActionLock } from "../hooks/useActionLock";
@@ -202,7 +202,7 @@ export function TransactionsPage() {
         </div>
       </Card>
       <Card>
-        {loading && transactions.length === 0 ? <LoadingState label="Carregando historico" /> : transactions.length === 0 ? (
+        {loading && transactions.length === 0 ? <TableSkeleton columns={5} label="Carregando histórico" /> : transactions.length === 0 ? (
           <EmptyState
             action={hasActiveFilters
               ? <Button onClick={() => setFilters({ type: "ALL" })} variant="secondary">Limpar filtros</Button>

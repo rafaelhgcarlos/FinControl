@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { CardPurchaseInput } from "../../../services/cardsService";
+import type { CardPurchaseInput } from "../services/cardsService";
 import type { Category } from "../../../types/category";
 import type { CreditCard } from "../../../types/creditCard";
 import { PurchaseFormModal } from "./CardForms";

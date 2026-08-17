@@ -1,0 +1,35 @@
+:root {
+  --fc-canvas: 210 20% 97%;
+  --fc-surface: 0 0% 100%;
+  --fc-surface-subtle: 210 25% 96%;
+  --fc-foreground: 222 47% 11%;
+  --fc-muted-foreground: 215 16% 47%;
+  --fc-border: 214 24% 88%;
+  --fc-primary: 160 84% 39%;
+  --fc-primary-foreground: 0 0% 100%;
+  --fc-success: 160 84% 32%;
+  --fc-warning: 32 95% 38%;
+  --fc-danger: 347 77% 50%;
+  --fc-info: 199 89% 40%;
+  --fc-radius-control: 0.5rem;
+  --fc-radius-surface: 0.625rem;
+  --fc-shadow-surface: 0 1px 2px rgb(15 23 42 / 0.04);
+  --fc-shadow-overlay: 0 24px 60px rgb(15 23 42 / 0.22);
+}
+
+.dark {
+  --fc-canvas: 216 25% 6%;
+  --fc-surface: 214 24% 10%;
+  --fc-surface-subtle: 215 22% 14%;
+  --fc-foreground: 210 40% 98%;
+  --fc-muted-foreground: 215 16% 65%;
+  --fc-border: 215 19% 22%;
+  --fc-primary: 158 64% 52%;
+  --fc-primary-foreground: 164 86% 8%;
+  --fc-success: 158 64% 52%;
+  --fc-warning: 43 96% 56%;
+  --fc-danger: 351 95% 71%;
+  --fc-info: 198 93% 60%;
+  --fc-shadow-surface: none;
+  --fc-shadow-overlay: 0 24px 60px rgb(0 0 0 / 0.45);
+}

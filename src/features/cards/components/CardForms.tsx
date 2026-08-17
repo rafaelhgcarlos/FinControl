@@ -5,7 +5,8 @@ import { FormField } from "../../../components/FormField";
 import { Input } from "../../../components/Input";
 import { Modal } from "../../../components/Modal";
 import { Select } from "../../../components/Select";
-import type { CardPurchaseInput, CreditCardInput } from "../../../services/cardsService";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import type { CardPurchaseInput, CreditCardInput } from "../services/cardsService";
 import type { Account } from "../../../types/account";
 import type { Category } from "../../../types/category";
 import type { CreditCard } from "../../../types/creditCard";
@@ -60,9 +61,9 @@ export function PaymentFormModal({ accounts, form, isOpen, onChange, onClose, on
 }
 
 export function ConfirmActionModal({ busy, description, isOpen, onClose, onConfirm, title }: { busy: boolean; description?: string; isOpen: boolean; onClose: () => void; onConfirm: () => void; title?: string }) {
-  return <Modal isOpen={isOpen} title={title ?? "Confirmar ação"} description={description} onClose={onClose}><div className="flex justify-end gap-2"><Button disabled={busy} variant="secondary" onClick={onClose}>Cancelar</Button><Button disabled={busy} variant="danger" onClick={onConfirm}>{busy ? "Processando..." : "Confirmar"}</Button></div></Modal>;
+  return <ConfirmDialog busy={busy} description={description} isOpen={isOpen} onClose={onClose} onConfirm={onConfirm} title={title ?? "Confirmar ação"} />;
 }
 
 function FormActions({ busy, onClose, submitLabel }: { busy: boolean; onClose: () => void; submitLabel: string }) {
-  return <div className="flex justify-end gap-2"><Button disabled={busy} variant="secondary" onClick={onClose}>Cancelar</Button><Button disabled={busy} type="submit">{busy ? "Salvando..." : submitLabel}</Button></div>;
+  return <div className="flex justify-end gap-2"><Button disabled={busy} variant="secondary" onClick={onClose}>Cancelar</Button><Button loading={busy} type="submit">{busy ? "Salvando..." : submitLabel}</Button></div>;
 }

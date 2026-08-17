@@ -1,4 +1,4 @@
-import type { CardInstallment, CardInvoice, CreditCard, InvoiceStatus } from "../types/creditCard";
+import type { CardInstallment, CardInvoice, CreditCard, InvoiceStatus } from "../../../types/creditCard";
 
 export function splitPurchaseIntoInstallments(amountInCents: number, installmentsCount: number) {
   const baseAmount = Math.floor(amountInCents / installmentsCount);

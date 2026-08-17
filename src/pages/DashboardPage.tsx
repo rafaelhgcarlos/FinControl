@@ -6,7 +6,7 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
 import { CategorySpendingChart, IncomeExpenseChart, TrendLineChart } from "../components/FinancialCharts";
-import { LoadingState } from "../components/LoadingState";
+import { DashboardSkeleton } from "../components/ui/Skeleton";
 import { PageHeader } from "../components/PageHeader";
 import { PeriodFilter } from "../components/PeriodFilter";
 import { StatCard } from "../components/StatCard";
@@ -70,7 +70,7 @@ export function DashboardPage() {
         action={<div className="flex w-full flex-col gap-3 xl:w-auto xl:flex-row xl:items-start"><PeriodFilter period={period} onPresetChange={handlePresetChange} onCustomChange={handleCustomChange} /><div className="flex gap-2"><ThemeSwitcher /><Button asChild className="min-w-0 flex-1 xl:flex-none"><Link to="/app?newEntry=1"><Plus className="h-4 w-4" aria-hidden="true" />Novo lancamento</Link></Button></div></div>}
       />
       {error ? <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-100">{error}</div> : null}
-      {loading ? <LoadingState label="Carregando dashboard" /> : analytics ? (
+      {loading ? <DashboardSkeleton /> : analytics ? (
         <div className="space-y-4 sm:space-y-5">
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo financeiro do período">
             {stats.map((stat) => <StatCard key={stat.label} {...stat} />)}

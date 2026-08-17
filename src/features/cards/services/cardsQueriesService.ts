@@ -1,9 +1,9 @@
 import { Timestamp, collection, doc, getDocs, limit, query, where, writeBatch } from "firebase/firestore";
-import { collections } from "../firebase/collections";
-import { firestore } from "../firebase/config";
-import type { CardInstallment, CardInvoice, CardPayment, CardPurchase, CreditCard } from "../types/creditCard";
+import { collections } from "../../../firebase/collections";
+import { firestore } from "../../../firebase/config";
+import type { CardInstallment, CardInvoice, CardPayment, CardPurchase, CreditCard } from "../../../types/creditCard";
 import { normalizeInvoice } from "./cardsCalculations";
-import { createConverter } from "./firestoreConverters";
+import { createConverter } from "../../../services/firestoreConverters";
 
 const cardConverter = createConverter<CreditCard>();
 const purchaseConverter = createConverter<CardPurchase>();

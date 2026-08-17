@@ -16,7 +16,7 @@ import { Toast } from "../components/Toast";
 import { useAuth } from "../contexts/AuthContext";
 import { useActionLock } from "../hooks/useActionLock";
 import { listAccounts } from "../services/accountsService";
-import { listCards } from "../services/cardsService";
+import { listCards } from "../features/cards";
 import { listCategories } from "../services/categoriesService";
 import { createRecurringTransaction, listRecurringTransactions, processDueRecurringTransactions, updateRecurringStatus, updateRecurringTransaction, type RecurringTransactionInput } from "../services/recurringTransactionsService";
 import type { Account } from "../types/account";

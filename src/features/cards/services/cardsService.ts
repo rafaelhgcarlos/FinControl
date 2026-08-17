@@ -11,15 +11,15 @@ import {
   type DocumentReference,
   type Transaction,
 } from "firebase/firestore";
-import { collections } from "../firebase/collections";
-import { firestore } from "../firebase/config";
-import type { Category } from "../types/category";
+import { collections } from "../../../firebase/collections";
+import { firestore } from "../../../firebase/config";
+import type { Category } from "../../../types/category";
 import type {
   CardInstallment,
   CardInvoice,
   CardPurchase,
   CreditCard,
-} from "../types/creditCard";
+} from "../../../types/creditCard";
 import {
   addMonths,
   buildInvoiceDates,
@@ -28,8 +28,8 @@ import {
   splitPurchaseIntoInstallments,
   sumInstallmentsByInvoice,
 } from "./cardsCalculations";
-import { createConverter } from "./firestoreConverters";
-import { applyMonthlySummaryDelta } from "./monthlySummariesService";
+import { createConverter } from "../../../services/firestoreConverters";
+import { applyMonthlySummaryDelta } from "../../../services/monthlySummariesService";
 
 const cardConverter = createConverter<CreditCard>();
 const purchaseConverter = createConverter<CardPurchase>();

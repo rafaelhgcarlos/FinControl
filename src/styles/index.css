@@ -1,3 +1,5 @@
+@import "./tokens.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -13,7 +15,7 @@
   }
 
   body {
-    @apply min-h-screen bg-[#f4f6f8] text-slate-950 antialiased dark:bg-[#0b0f14] dark:text-slate-50;
+    @apply min-h-screen bg-canvas text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
@@ -30,7 +32,7 @@
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-emerald-500 ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-surface;
   }
 }
 

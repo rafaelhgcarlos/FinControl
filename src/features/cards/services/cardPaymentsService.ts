@@ -1,10 +1,10 @@
 import { Timestamp, collection, doc, runTransaction } from "firebase/firestore";
-import { collections } from "../firebase/collections";
-import { firestore } from "../firebase/config";
-import type { Account } from "../types/account";
-import type { CardInvoice, CardPayment, CreditCard } from "../types/creditCard";
+import { collections } from "../../../firebase/collections";
+import { firestore } from "../../../firebase/config";
+import type { Account } from "../../../types/account";
+import type { CardInvoice, CardPayment, CreditCard } from "../../../types/creditCard";
 import { computeInvoiceStatus } from "./cardsCalculations";
-import { createConverter } from "./firestoreConverters";
+import { createConverter } from "../../../services/firestoreConverters";
 
 const invoiceConverter = createConverter<CardInvoice>();
 const cardConverter = createConverter<CreditCard>();

@@ -2,10 +2,10 @@ import { Plus, ReceiptText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Button } from "../components/Button";
-import { LoadingState } from "../components/LoadingState";
+import { CardsSkeleton } from "../components/ui/Skeleton";
 import { PageHeader } from "../components/PageHeader";
-import { Toast } from "../components/Toast";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { CardDetailView, CardNotFound, type CardTab } from "../features/cards/components/CardDetailView";
 import { CardFormModal, ConfirmActionModal, PaymentFormModal, PurchaseFormModal } from "../features/cards/components/CardForms";
 import { CardsOverview } from "../features/cards/components/CardsOverview";
@@ -31,7 +31,7 @@ import {
   updateCardPurchase,
   type CardPurchaseInput,
   type CreditCardInput,
-} from "../services/cardsService";
+} from "../features/cards";
 import type { Account } from "../types/account";
 import type { Category } from "../types/category";
 import type { CardInvoice, CardPayment, CardPurchase, CreditCard as CreditCardType } from "../types/creditCard";
@@ -60,6 +60,7 @@ export function CardDetailPage({ cardId }: { cardId: string }) {
 
 function CardsModulePage({ cardId, detail = false }: { cardId?: string; detail?: boolean }) {
   const { user } = useAuth();
+  const toast = useToast();
   const { isActionPending, runAction } = useActionLock();
   const [searchParams, setSearchParams] = useSearchParams();
   const [cards, setCards] = useState<CreditCardType[]>([]);
@@ -79,7 +80,6 @@ function CardsModulePage({ cardId, detail = false }: { cardId?: string; detail?:
   const [invoiceViews, setInvoiceViews] = useState<Record<string, InvoiceViewState>>({});
   const [activeTab, setActiveTab] = useState<CardTab>("invoice");
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -100,10 +100,10 @@ function CardsModulePage({ cardId, detail = false }: { cardId?: string; detail?:
 
   useEffect(() => {
     void loadData().catch((error) => {
-      setMessage(getFriendlyFirebaseError(error, "Não foi possível carregar os cartões."));
+      toast.error(getFriendlyFirebaseError(error, "Não foi possível carregar os cartões."));
       setLoading(false);
     });
-  }, [loadData]);
+  }, [loadData, toast]);
 
   useEffect(() => {
     if (!loading && searchParams.get("new") === "purchase") {
@@ -154,9 +154,9 @@ function CardsModulePage({ cardId, detail = false }: { cardId?: string; detail?:
     await runAction("card:save", async () => {
       try {
         if (editingCardId) await updateCard(editingCardId, cardForm); else await createCard(user.uid, cardForm);
-        setMessage(editingCardId ? "Cartão atualizado." : "Cartão criado.");
+        toast.success(editingCardId ? "Cartão atualizado." : "Cartão criado.");
         setCardForm(initialCardForm); setEditingCardId(null); setModal(null); await loadData();
-      } catch (error) { setMessage(getFriendlyFirebaseError(error, "Não foi possível salvar o cartão.")); }
+      } catch (error) { toast.error(getFriendlyFirebaseError(error, "Não foi possível salvar o cartão.")); }
     });
   }
 
@@ -167,9 +167,9 @@ function CardsModulePage({ cardId, detail = false }: { cardId?: string; detail?:
       try {
         if (editingPurchaseId) await updateCardPurchase(user.uid, editingPurchaseId, purchaseForm, cards, expenseCategories);
         else await createCardPurchase(user.uid, purchaseForm, cards, expenseCategories);
-        setMessage(editingPurchaseId ? "Compra atualizada." : "Compra registrada.");
+        toast.success(editingPurchaseId ? "Compra atualizada." : "Compra registrada.");
         setEditingPurchaseId(null); setModal(null); await loadData();
-      } catch (error) { setMessage(getFriendlyFirebaseError(error, "Não foi possível registrar a compra.")); }
+      } catch (error) { toast.error(getFriendlyFirebaseError(error, "Não foi possível registrar a compra.")); }
     });
   }
 
@@ -181,29 +181,29 @@ function CardsModulePage({ cardId, detail = false }: { cardId?: string; detail?:
     setConfirmAction({
       title: "Confirmar pagamento",
       description: `Pagar ${formatCurrencyFromCents(paymentForm.amountInCents)} da fatura ${invoice?.cycleKey ?? ""} usando ${account?.name ?? "a conta selecionada"}? O valor será descontado da conta e o limite será liberado.`,
-      action: async () => { await payInvoice(user.uid, paymentForm.invoiceId, paymentForm.accountId, paymentForm.amountInCents, accounts); setMessage("Pagamento registrado."); await loadData(); },
+      action: async () => { await payInvoice(user.uid, paymentForm.invoiceId, paymentForm.accountId, paymentForm.amountInCents, accounts); toast.success("Pagamento registrado."); await loadData(); },
     });
     setModal("confirm");
   }
 
   function requestArchiveCard(card: CreditCardType) {
-    setConfirmAction({ title: "Arquivar cartão", description: `Arquivar "${card.name}" impede novas compras, mas preserva faturas, parcelas e histórico.`, action: async () => { if (!user) return; await archiveCard(user.uid, card.id); setMessage("Cartão arquivado."); await loadData(); } });
+    setConfirmAction({ title: "Arquivar cartão", description: `Arquivar "${card.name}" impede novas compras, mas preserva faturas, parcelas e histórico.`, action: async () => { if (!user) return; await archiveCard(user.uid, card.id); await loadData(); toast.success("Cartão arquivado.", { duration: 8000, action: { label: "Desfazer", onClick: async () => { await updateCard(card.id, cardToInput(card, "ACTIVE")); await loadData(); toast.success("Arquivamento desfeito."); } } }); } });
     setModal("confirm");
   }
   function requestDeleteCard(card: CreditCardType) {
-    setConfirmAction({ title: "Apagar cartão", description: `Apagar "${card.name}" remove o cartão da carteira. Esta ação só será permitida se ele não tiver compras, faturas, parcelas ou pagamentos. Para cartões com histórico, use Arquivar.`, action: async () => { if (!user) return; await deleteUnusedCard(user.uid, card.id); setMessage("Cartão apagado."); await loadData(); } });
+    setConfirmAction({ title: "Apagar cartão", description: `Apagar "${card.name}" remove o cartão da carteira. Esta ação só será permitida se ele não tiver compras, faturas, parcelas ou pagamentos. Para cartões com histórico, use Arquivar.`, action: async () => { if (!user) return; await deleteUnusedCard(user.uid, card.id); toast.success("Cartão apagado."); await loadData(); } });
     setModal("confirm");
   }
   function requestDeletePurchase(purchase: CardPurchase) {
-    setConfirmAction({ title: "Excluir compra", description: `Excluir "${purchase.description}" remove as parcelas abertas, corrige faturas e libera o limite comprometido. Faturas pagas não podem ser alteradas.`, action: async () => { if (!user) return; await deleteCardPurchase(user.uid, purchase.id); setMessage("Compra excluída."); await loadData(); } });
+    setConfirmAction({ title: "Excluir compra", description: `Excluir "${purchase.description}" remove as parcelas abertas, corrige faturas e libera o limite comprometido. Faturas pagas não podem ser alteradas.`, action: async () => { if (!user) return; await deleteCardPurchase(user.uid, purchase.id); toast.success("Compra excluída."); await loadData(); } });
     setModal("confirm");
   }
   function requestDeleteInvoice(invoice: CardInvoice) {
-    setConfirmAction({ title: "Excluir fatura", description: "Esta ação remove a fatura e as compras vinculadas a ela, corrige parcelas, faturas futuras e libera o limite. Faturas pagas não podem ser excluídas.", action: async () => { if (!user) return; await deleteCardInvoice(user.uid, invoice.id); setMessage("Fatura excluída."); await loadData(); } });
+    setConfirmAction({ title: "Excluir fatura", description: "Esta ação remove a fatura e as compras vinculadas a ela, corrige parcelas, faturas futuras e libera o limite. Faturas pagas não podem ser excluídas.", action: async () => { if (!user) return; await deleteCardInvoice(user.uid, invoice.id); toast.success("Fatura excluída."); await loadData(); } });
     setModal("confirm");
   }
   function requestDeletePayment(payment: CardPayment) {
-    setConfirmAction({ title: "Remover pagamento", description: `Remover o pagamento de ${formatCurrencyFromCents(payment.amountInCents)}? O saldo voltará para a conta, a fatura será reaberta e o limite do cartão será comprometido novamente.`, action: async () => { if (!user) return; await deleteCardPayment(user.uid, payment.id); setMessage("Pagamento removido."); await loadData(); } });
+    setConfirmAction({ title: "Remover pagamento", description: `Remover o pagamento de ${formatCurrencyFromCents(payment.amountInCents)}? O saldo voltará para a conta, a fatura será reaberta e o limite do cartão será comprometido novamente.`, action: async () => { if (!user) return; await deleteCardPayment(user.uid, payment.id); toast.success("Pagamento removido."); await loadData(); } });
     setModal("confirm");
   }
 
@@ -211,7 +211,7 @@ function CardsModulePage({ cardId, detail = false }: { cardId?: string; detail?:
     if (!confirmAction) return;
     await runAction("card:confirm", async () => {
       try { await confirmAction.action(); setConfirmAction(null); setModal(null); }
-      catch (error) { setMessage(getFriendlyFirebaseError(error, "Não foi possível concluir a ação.")); }
+      catch (error) { toast.error(getFriendlyFirebaseError(error, "Não foi possível concluir a ação.")); }
     });
   }
 
@@ -225,12 +225,10 @@ function CardsModulePage({ cardId, detail = false }: { cardId?: string; detail?:
   return <>
     <PageHeader title={pageTitle} description={pageDescription} action={<div className="flex flex-wrap gap-2">
       {detail ? <Button asChild variant="secondary"><Link to="/app/cards">Voltar</Link></Button> : null}
-      {selectedCard ? <Button disabled={actionsDisabled} onClick={() => openCardForm(selectedCard)}><Plus className="h-4 w-4" aria-hidden="true" />Editar cartão</Button> : null}
       {selectedCard ? <Button disabled={actionsDisabled} variant="secondary" onClick={() => openPurchase(selectedCard.id)}><ReceiptText className="h-4 w-4" aria-hidden="true" />Nova compra</Button> : null}
       {!detail ? <Button disabled={actionsDisabled} onClick={() => openCardForm()}><Plus className="h-4 w-4" aria-hidden="true" />Novo cartão</Button> : null}
     </div>} />
-    {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
-    {loading ? <LoadingState label="Carregando cartões" /> : detail ? selectedCard ? (
+    {loading ? <CardsSkeleton /> : detail ? selectedCard ? (
       <CardDetailView accounts={accounts} actionsDisabled={actionsDisabled} activeTab={activeTab} card={selectedCard} categories={categories}
         installments={installments.filter((item) => item.cardId === selectedCard.id)} invoiceViews={invoiceViews} invoices={invoices.filter((item) => item.cardId === selectedCard.id)}
         onArchive={requestArchiveCard} onDeleteCard={requestDeleteCard} onEditCard={openCardForm} onEditPurchase={openEditPurchase} onPayInvoice={openPayment}
@@ -249,4 +247,8 @@ function CardsModulePage({ cardId, detail = false }: { cardId?: string; detail?:
 function emptyPurchaseForm(): CardPurchaseInput {
   const today = new Date();
   return { cardId: "", categoryId: "", description: "", amountInCents: 0, purchaseDate: today, installmentsCount: 1, firstInstallmentDate: today, idempotencyKey: crypto.randomUUID() };
+}
+
+function cardToInput(card: CreditCardType, status: CreditCardInput["status"]): CreditCardInput {
+  return { name: card.name, institution: card.institution ?? "", lastFour: card.lastFour ?? "", brand: card.brand ?? "OTHER", limitInCents: card.limitInCents, closingDay: card.closingDay, dueDay: card.dueDay, color: card.color, status };
 }

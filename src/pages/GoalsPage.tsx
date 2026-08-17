@@ -8,7 +8,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { FormField } from "../components/FormField";
 import { Input } from "../components/Input";
-import { LoadingState } from "../components/LoadingState";
+import { ListSkeleton } from "../components/ui/Skeleton";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Toast } from "../components/Toast";
@@ -71,7 +71,7 @@ export function GoalsPage() {
   return <>
     <PageHeader title="Metas financeiras" description="Acompanhe objetivos sem movimentar automaticamente o saldo das contas." action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" />Nova meta</Button>} />
     {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
-    {error ? <ErrorState message={error} /> : loading ? <Card><LoadingState label="Carregando metas" /></Card> : goals.length === 0 ? <Card><EmptyState action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" />Criar meta</Button>} title="Nenhuma meta" description="Defina um objetivo e registre sua evolução." icon={<Target className="h-6 w-6" />} /></Card> :
+    {error ? <ErrorState message={error} /> : loading ? <ListSkeleton label="Carregando metas" /> : goals.length === 0 ? <Card><EmptyState action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" />Criar meta</Button>} title="Nenhuma meta" description="Defina um objetivo e registre sua evolução." icon={<Target className="h-6 w-6" />} /></Card> :
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{goals.map((item) => <Card key={item.id} className={item.status === "ARCHIVED" ? "opacity-65" : ""}>
         <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">{item.name}</h2><p className="text-sm text-slate-500">{item.category || "Objetivo financeiro"}</p></div><Badge variant={item.status === "COMPLETED" ? "success" : item.status === "ARCHIVED" ? "neutral" : "warning"}>{item.status === "COMPLETED" ? "Concluida" : item.status === "ARCHIVED" ? "Arquivada" : "Em andamento"}</Badge></div>
         <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div className="h-full bg-emerald-600" style={{ width: `${item.progressPercent}%` }} /></div>

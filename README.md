@@ -2,6 +2,11 @@
 
 Base do MVP do FinControl em React, TypeScript, Vite, Firebase e Tailwind CSS.
 
+## Guias internos
+
+- [Design System](docs/design-system.md): tokens, componentes-base, estados e regras de uso.
+- [Arquitetura](docs/architecture.md): estrutura por features, critérios de pertencimento e estratégia de migração gradual.
+
 ## Requisitos
 
 - Node.js 20+
@@ -49,7 +54,7 @@ A suite cria usuarios unicos e descartaveis a cada execucao e cobre cadastro, co
 
 Os dados dos emuladores sao descartados ao final de `test:e2e`. Relatorios HTML e traces de falha ficam em `playwright-report/` e `test-results/`, ambos ignorados pelo Git.
 
-As issues #25, #27 e #28 ainda representam evolucoes visuais posteriores. A jornada usa nomes acessiveis e resultados financeiros como contratos para permanecer valida durante esses redesenhos.
+A jornada usa nomes acessíveis e resultados financeiros como contratos para permanecer válida durante evoluções visuais.
 
 ### Administracao no plano Spark
 

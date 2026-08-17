@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, type KeyboardEvent, type PropsWithChildren, type ReactNode } from "react";
 import { X } from "lucide-react";
-import { Button } from "./Button";
+import { IconButton } from "./ui/IconButton";
 
 type ModalProps = PropsWithChildren<{
   isOpen: boolean;
@@ -60,7 +60,7 @@ export function Modal({ children, description, footer, isOpen, onClose, title }:
         aria-describedby={description ? descriptionId : undefined}
         aria-modal="true"
         aria-labelledby={titleId}
-        className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-t-lg border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-800 dark:bg-[#111820] sm:rounded-lg sm:p-6"
+        className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-t-surface border border-border bg-surface p-5 shadow-overlay sm:rounded-surface sm:p-6"
         onKeyDown={handleKeyDown}
         ref={dialogRef}
         role="dialog"
@@ -68,18 +68,18 @@ export function Modal({ children, description, footer, isOpen, onClose, title }:
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950 dark:text-white" id={titleId}>
+            <h2 className="text-lg font-semibold text-foreground" id={titleId}>
               {title}
             </h2>
             {description ? (
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400" id={descriptionId}>
+              <p className="mt-1 text-sm text-muted-foreground" id={descriptionId}>
                 {description}
               </p>
             ) : null}
           </div>
-          <Button aria-label="Fechar" className="h-10 w-10 px-0" onClick={onClose} title="Fechar" variant="ghost">
+          <IconButton aria-label="Fechar" onClick={onClose}>
             <X className="h-4 w-4" aria-hidden="true" />
-          </Button>
+          </IconButton>
         </div>
         <div className="mt-5">{children}</div>
         {footer ? <div className="mt-6 flex justify-end gap-2">{footer}</div> : null}

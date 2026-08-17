@@ -8,7 +8,7 @@ import type { MonthlySummary } from "../types/monthlySummary";
 import type { Transaction } from "../types/transaction";
 import { listAccounts } from "./accountsService";
 import { listBudgetsWithUsage } from "./budgetsService";
-import { listCards, listInvoices, listPurchases } from "./cardsService";
+import { listCards, listInvoices, listPurchases } from "../features/cards";
 import { listCategories } from "./categoriesService";
 import { listMonthlySummaries } from "./monthlySummariesService";
 import { listRecurringTransactions } from "./recurringTransactionsService";

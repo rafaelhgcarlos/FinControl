@@ -9,7 +9,7 @@ import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
 import { FormField } from "../components/FormField";
 import { Input } from "../components/Input";
-import { LoadingState } from "../components/LoadingState";
+import { ListSkeleton } from "../components/ui/Skeleton";
 import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Select } from "../components/Select";
@@ -78,7 +78,7 @@ export function BudgetsPage() {
   return <>
     <PageHeader title="Orçamentos" description="Defina limites por categoria e acompanhe o consumo no periodo." action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" />Novo orcamento</Button>} />
     {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
-    {error ? <ErrorState message={error} /> : loading ? <Card><LoadingState label="Carregando orcamentos" /></Card> : budgets.length === 0 ? <Card><EmptyState action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" />Criar orçamento</Button>} title="Nenhum orçamento" description="Crie um limite para acompanhar seus gastos por categoria." icon={<PiggyBank className="h-6 w-6" />} /></Card> :
+    {error ? <ErrorState message={error} /> : loading ? <ListSkeleton label="Carregando orçamentos" /> : budgets.length === 0 ? <Card><EmptyState action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" />Criar orçamento</Button>} title="Nenhum orçamento" description="Crie um limite para acompanhar seus gastos por categoria." icon={<PiggyBank className="h-6 w-6" />} /></Card> :
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{budgets.map((item) => {
         const alert = getBudgetAlertLevel(item.percentage);
         const variant = alert === "AT_100" ? "danger" : alert === "AT_80" ? "warning" : alert === "AT_50" ? "neutral" : "success";

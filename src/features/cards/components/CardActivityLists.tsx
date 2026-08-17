@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "../../../components/Button";
+import { Badge } from "../../../components/Badge";
 import { EmptyState } from "../../../components/EmptyState";
 import type { Account } from "../../../types/account";
 import type { Category } from "../../../types/category";
@@ -18,7 +19,7 @@ export function PurchasesList({ actionsDisabled = false, categories, onEditPurch
   if (purchases.length === 0) return <EmptyState action={<Button disabled={actionsDisabled} onClick={onPurchase}>Registrar compra</Button>} className="mt-0" description="As compras deste cartão aparecerão aqui." size="compact" title="Nenhuma compra registrada" />;
   return <div className="space-y-2">{purchases.map((purchase) => (
     <div className="flex flex-col gap-3 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between" key={purchase.id}>
-      <div className="min-w-0"><p className="truncate font-medium">{purchase.description}</p><p className="mt-1 text-xs text-slate-500">{categoryName(categories, purchase.categoryId)} • {formatDatePtBr(purchase.purchaseDate)} • {purchase.installmentsCount}x</p></div>
+      <div className="min-w-0"><p className="truncate font-medium">{purchase.description}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{categoryName(categories, purchase.categoryId)} • {formatDatePtBr(purchase.purchaseDate)}</span>{purchase.installmentsCount > 1 ? <Badge>{purchase.installmentsCount} parcelas</Badge> : null}</div></div>
       <div className="flex items-center justify-between gap-2 sm:justify-end"><span className="font-semibold">{formatCurrencyFromCents(purchase.amountInCents)}</span><Button aria-label="Editar compra" className="min-h-9 px-2" disabled={actionsDisabled} onClick={() => onEditPurchase(purchase)} variant="ghost"><Pencil className="h-4 w-4" /></Button><Button aria-label="Excluir compra" className="min-h-9 px-2" disabled={actionsDisabled} onClick={() => onRemovePurchase(purchase)} variant="ghost"><Trash2 className="h-4 w-4" /></Button></div>
     </div>
   ))}</div>;
@@ -27,7 +28,7 @@ export function PurchasesList({ actionsDisabled = false, categories, onEditPurch
 export function InstallmentsList({ actionsDisabled = false, installments, onPurchase }: { actionsDisabled?: boolean; installments: CardInstallment[]; onPurchase: () => void }) {
   if (installments.length === 0) return <EmptyState action={<Button disabled={actionsDisabled} onClick={onPurchase}>Registrar compra</Button>} className="mt-0" description="Compras parceladas aparecerão nesta lista." size="compact" title="Nenhuma parcela registrada" />;
   return <div className="grid gap-2 md:grid-cols-2">{installments.slice(0, 80).map((installment) => (
-    <div className="rounded-md border border-slate-200 p-3 text-sm dark:border-slate-800" key={installment.id}><div className="flex justify-between gap-3"><span className="truncate font-medium">{installment.description}</span><span className="shrink-0 font-semibold">{formatCurrencyFromCents(installment.amountInCents)}</span></div><p className="mt-1 text-xs text-slate-500">Parcela {installment.installmentNumber}/{installment.installmentsCount} • {formatDatePtBr(installment.dueDate)}</p></div>
+    <div className="rounded-md border border-border p-3 text-sm" key={installment.id}><div className="flex justify-between gap-3"><span className="truncate font-medium">{installment.description}</span><span className="shrink-0 font-semibold">{formatCurrencyFromCents(installment.amountInCents)}</span></div><div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground"><span>{formatDatePtBr(installment.dueDate)}</span>{installment.installmentsCount > 1 ? <Badge>{installment.installmentNumber}/{installment.installmentsCount}</Badge> : null}</div></div>
   ))}</div>;
 }
 

@@ -28,14 +28,14 @@ export function buildInvoiceItems(invoice: CardInvoice, installments: CardInstal
   });
 }
 
-export function invoiceStatusLabel(status: CardInvoice["status"]) {
+export function getInvoiceStatusLabel(status: CardInvoice["status"]) {
   if (status === "PAID") return "Paga";
   if (status === "OVERDUE") return "Vencida";
   if (status === "CLOSED") return "Fechada";
   return "Aberta";
 }
 
-export function invoiceStatusVariant(status: CardInvoice["status"]): "success" | "danger" | "warning" | "neutral" {
+export function getInvoiceStatusVariant(status: CardInvoice["status"]): "success" | "danger" | "warning" | "neutral" {
   if (status === "PAID") return "success";
   if (status === "OVERDUE") return "danger";
   if (status === "CLOSED") return "warning";

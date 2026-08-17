@@ -17,7 +17,7 @@ import type { Account } from "../types/account";
 import type { Category } from "../types/category";
 import type { CreditCard } from "../types/creditCard";
 import type { RecurringFrequency, RecurringStatus, RecurringTargetType, RecurringTransaction, RecurringTransactionType } from "../types/recurringTransaction";
-import { createCardPurchase } from "./cardsService";
+import { createCardPurchase } from "../features/cards";
 import { createConverter } from "./firestoreConverters";
 import { applyMonthlySummaryDelta } from "./monthlySummariesService";
 import { balanceDeltas, type TransactionInput } from "./transactionsService";

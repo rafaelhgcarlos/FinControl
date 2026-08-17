@@ -12,7 +12,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Select } from "../components/Select";
 import { Table } from "../components/Table";
 import { Toast } from "../components/Toast";
-import { LoadingState } from "../components/LoadingState";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { useAuth } from "../contexts/AuthContext";
 import { useActionLock } from "../hooks/useActionLock";
 import { accountTypes, archiveAccount, createAccount, listAccounts, updateAccount, type AccountInput } from "../services/accountsService";
@@ -118,7 +118,7 @@ export function AccountsPage() {
       <PageHeader title="Contas" description="Cadastre contas e reconcilie saldos com os lancamentos." action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Nova conta</Button>} />
       {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <Card>
-        {loading ? <LoadingState label="Carregando contas" /> : rows.length === 0 ? (
+        {loading ? <TableSkeleton label="Carregando contas" /> : rows.length === 0 ? (
           <EmptyState action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Criar primeira conta</Button>} title="Nenhuma conta cadastrada" description="Crie sua primeira conta para registrar movimentacoes." icon={<Landmark className="h-6 w-6" aria-hidden="true" />} />
         ) : (
           <>

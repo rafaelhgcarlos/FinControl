@@ -4,12 +4,13 @@ import { ThemeProvider } from "./ThemeContext";
 import { AuthProvider } from "./AuthContext";
 import { SyncProvider } from "./SyncContext";
 import { AdminProvider } from "./AdminContext";
+import { ToastProvider } from "./ToastContext";
 
 export function AppProviders({ children }: PropsWithChildren) {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AdminProvider><SyncProvider><BrowserRouter>{children}</BrowserRouter></SyncProvider></AdminProvider>
+        <AdminProvider><SyncProvider><ToastProvider><BrowserRouter>{children}</BrowserRouter></ToastProvider></SyncProvider></AdminProvider>
       </AuthProvider>
     </ThemeProvider>
   );

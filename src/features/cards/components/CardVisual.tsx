@@ -2,8 +2,10 @@ import { Archive, Building2, Pencil, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Badge } from "../../../components/Badge";
 import { Button } from "../../../components/Button";
+import { ActionMenu } from "../../../components/ui/ActionMenu";
 import type { CardInvoice, CreditCard } from "../../../types/creditCard";
 import { formatCurrencyFromCents } from "../../../utils/money";
+import { LimitUsage } from "./LimitUsage";
 
 export function CardVisual({ actionsDisabled = false, card, compact = false, currentInvoice, onArchive, onDelete, onEdit, onPurchase }: {
   actionsDisabled?: boolean;
@@ -15,7 +17,7 @@ export function CardVisual({ actionsDisabled = false, card, compact = false, cur
   onEdit: (card: CreditCard) => void;
   onPurchase: (cardId?: string) => void;
 }) {
-  const available = card.limitInCents - card.committedLimitInCents;
+  const remaining = Math.max(0, (currentInvoice?.totalInCents ?? 0) - (currentInvoice?.paidInCents ?? 0));
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <Link className="block" to={`/app/cards/${card.id}`}>
@@ -30,9 +32,9 @@ export function CardVisual({ actionsDisabled = false, card, compact = false, cur
             <p className="mt-1 truncate text-xl font-semibold">{card.name}</p>
             <p className="mt-1 text-sm text-white/75">{card.institution || "Instituição não informada"} • final {card.lastFour ?? "----"}</p>
           </div>
-          <div className="relative mt-6 grid grid-cols-2 gap-3 text-sm">
-            <div><p className="text-white/65">Disponível</p><p className="font-semibold">{formatCurrencyFromCents(available)}</p></div>
-            <div><p className="text-white/65">Fatura atual</p><p className="font-semibold">{formatCurrencyFromCents(currentInvoice?.totalInCents ?? 0)}</p></div>
+          <div className="relative mt-5 rounded-lg bg-black/10 p-3 backdrop-blur-sm">
+            <div className="flex items-end justify-between gap-3"><div><p className="text-xs text-white/65">Fatura atual</p><p className="mt-0.5 text-xl font-bold">{formatCurrencyFromCents(currentInvoice?.totalInCents ?? 0)}</p></div><div className="text-right"><p className="text-xs text-white/65">Restante</p><p className="font-semibold">{formatCurrencyFromCents(remaining)}</p></div></div>
+            <LimitUsage card={card} inverse />
           </div>
           <div className="relative mt-4 flex items-end justify-between gap-3">
             <p className="text-xs text-white/70">Vence dia {card.dueDay}</p>
@@ -40,11 +42,13 @@ export function CardVisual({ actionsDisabled = false, card, compact = false, cur
           </div>
         </div>
       </Link>
-      <div className="grid grid-cols-2 gap-2 border-t border-slate-100 p-3 dark:border-slate-800 sm:grid-cols-4">
-        <Button className="px-2" disabled={actionsDisabled || card.status !== "ACTIVE"} onClick={() => onPurchase(card.id)} variant="secondary">Compra</Button>
-        <Button className="px-2" disabled={actionsDisabled} onClick={() => onEdit(card)} variant="ghost"><Pencil className="h-4 w-4" aria-hidden="true" />Editar</Button>
-        <Button className="px-2" disabled={actionsDisabled || card.status === "ARCHIVED"} onClick={() => onArchive(card)} variant="ghost"><Archive className="h-4 w-4" aria-hidden="true" />Arquivar</Button>
-        <Button className="px-2" disabled={actionsDisabled} onClick={() => onDelete(card)} variant="danger"><Trash2 className="h-4 w-4" aria-hidden="true" />Apagar</Button>
+      <div className="flex gap-2 border-t border-border p-3">
+        <Button className="flex-1" disabled={actionsDisabled || card.status !== "ACTIVE"} onClick={() => onPurchase(card.id)} variant="secondary">Registrar compra</Button>
+        <ActionMenu disabled={actionsDisabled} items={[
+          { icon: <Pencil aria-hidden="true" className="h-4 w-4" />, label: "Editar cartão", onSelect: () => onEdit(card) },
+          { disabled: card.status === "ARCHIVED", icon: <Archive aria-hidden="true" className="h-4 w-4" />, label: "Arquivar cartão", onSelect: () => onArchive(card) },
+          { danger: true, icon: <Trash2 aria-hidden="true" className="h-4 w-4" />, label: "Apagar cartão", onSelect: () => onDelete(card) },
+        ]} />
       </div>
     </div>
   );

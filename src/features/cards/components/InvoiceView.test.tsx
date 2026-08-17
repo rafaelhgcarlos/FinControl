@@ -15,8 +15,8 @@ function purchase(index: number): CardPurchase {
   return { id: `purchase-${index}`, userId: "user-1", createdAt: now, updatedAt: now, cardId: card.id, description: `Compra ${index}`, amountInCents: 1000 + index, purchaseDate: new Date(2026, 7, (index % 15) + 1, 12), installmentsCount: 1, firstInstallmentDate: now, idempotencyKey: `key-${index}` };
 }
 
-function installment(index: number): CardInstallment {
-  return { id: `installment-${index}`, userId: "user-1", createdAt: now, updatedAt: now, purchaseId: `purchase-${index}`, cardId: card.id, invoiceId: "invoice-1", installmentNumber: 1, installmentsCount: 1, amountInCents: 1000 + index, dueDate: now, description: `Compra ${index}`, status: "OPEN" };
+function installment(index: number, installmentNumber = 1, installmentsCount = 1): CardInstallment {
+  return { id: `installment-${index}`, userId: "user-1", createdAt: now, updatedAt: now, purchaseId: `purchase-${index}`, cardId: card.id, invoiceId: "invoice-1", installmentNumber, installmentsCount, amountInCents: 1000 + index, dueDate: now, description: `Compra ${index}`, status: "OPEN" };
 }
 
 function renderInvoice(overrides: Partial<Parameters<typeof InvoiceView>[0]> = {}) {
@@ -45,7 +45,7 @@ describe("InvoiceView", () => {
   it("resume uma fatura paga e bloqueia ações incompatíveis", () => {
     renderInvoice({ invoice: invoice("PAID", 120000) });
     const summary = screen.getByRole("region", { name: "Resumo da fatura" });
-    expect(within(summary).getByText("Paga")).toBeInTheDocument();
+    expect(within(summary).getAllByText("Paga").length).toBeGreaterThan(0);
     expect(within(summary).getByRole("button", { name: "Fatura paga" })).toBeDisabled();
     expect(within(summary).getByText("Restante")).toBeInTheDocument();
   });
@@ -53,8 +53,16 @@ describe("InvoiceView", () => {
   it("destaca uma fatura vencida e permite buscar itens", () => {
     const onViewChange = vi.fn();
     renderInvoice({ invoice: invoice("OVERDUE"), onViewChange });
-    expect(screen.getByText("Vencida")).toBeInTheDocument();
+    expect(screen.getAllByText("Vencida").length).toBeGreaterThan(0);
     fireEvent.change(screen.getByRole("textbox", { name: "Buscar item da fatura" }), { target: { value: "mercado" } });
     expect(onViewChange).toHaveBeenCalledWith("invoice-1", { query: "mercado", visible: 12 });
+  });
+
+  it("mostra a timeline e omite o badge redundante de parcela única", () => {
+    const purchases = [purchase(1), purchase(2)];
+    renderInvoice({ installments: [installment(1), installment(2, 2, 3)], purchases });
+    expect(screen.getByRole("list", { name: "Ciclo da fatura" })).toBeInTheDocument();
+    expect(screen.queryByText("1/1")).not.toBeInTheDocument();
+    expect(screen.getByText("2/3")).toBeInTheDocument();
   });
 });

@@ -8,8 +8,9 @@ import type { Category } from "../../../types/category";
 import type { CardInstallment, CardInvoice, CardPayment, CardPurchase, CreditCard } from "../../../types/creditCard";
 import { formatDatePtBr } from "../../../utils/date";
 import { formatCurrencyFromCents } from "../../../utils/money";
-import { buildInvoiceItems, invoiceStatusLabel, invoiceStatusVariant, type InvoiceViewState } from "../cardViewUtils";
+import { buildInvoiceItems, getInvoiceStatusLabel, getInvoiceStatusVariant, type InvoiceViewState } from "../cardViewUtils";
 import { categoryName } from "./CardActivityLists";
+import { InvoiceTimeline } from "./InvoiceTimeline";
 
 export function InvoiceView({ actionsDisabled = false, card, categories, installments, invoice, invoiceView, onEditPurchase, onPayInvoice, onRemoveInvoice, onRemovePurchase, onViewChange, payments, purchases }: {
   actionsDisabled?: boolean;
@@ -37,7 +38,7 @@ export function InvoiceView({ actionsDisabled = false, card, categories, install
       <section className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/70" aria-label="Resumo da fatura">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-semibold">Fatura {invoice.cycleKey}</h2><Badge variant={invoiceStatusVariant(invoice.status)}>{invoiceStatusLabel(invoice.status)}</Badge></div>
+            <div className="flex flex-wrap items-center gap-2"><h2 className="text-lg font-semibold">Fatura {invoice.cycleKey}</h2><Badge variant={getInvoiceStatusVariant(invoice.status)}>{getInvoiceStatusLabel(invoice.status)}</Badge></div>
             <p className="mt-1 text-sm text-slate-500">Fecha em {formatDatePtBr(invoice.closingDate)} • vence em {formatDatePtBr(invoice.dueDate)}</p>
             <p className="mt-1 text-xs text-slate-500">{payments.length} pagamento(s) registrado(s)</p>
           </div>
@@ -47,11 +48,12 @@ export function InvoiceView({ actionsDisabled = false, card, categories, install
           </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <InvoiceMetric emphasis label="Restante" value={formatCurrencyFromCents(Math.max(0, remaining))} />
           <InvoiceMetric label="Total" value={formatCurrencyFromCents(invoice.totalInCents)} />
           <InvoiceMetric label="Pago" value={formatCurrencyFromCents(invoice.paidInCents)} />
-          <InvoiceMetric emphasis label="Restante" value={formatCurrencyFromCents(Math.max(0, remaining))} />
           <InvoiceMetric label="Limite disponível" value={formatCurrencyFromCents(card.limitInCents - card.committedLimitInCents)} />
         </div>
+        <div className="mt-4 border-t border-border pt-4"><InvoiceTimeline invoice={invoice} /></div>
       </section>
 
       <div className="grid gap-3 lg:grid-cols-[1fr_180px]">
@@ -78,7 +80,7 @@ export function InvoiceView({ actionsDisabled = false, card, categories, install
               <div className="mb-2 flex items-center gap-3"><h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{date}</h3><span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" /></div>
               <div className="space-y-2">{group.map(({ installment, purchase }) => (
                 <div className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between" key={installment.id}>
-                  <div className="min-w-0"><p className="truncate text-sm font-semibold">{installment.description}</p><p className="mt-1 text-xs text-slate-500">{categoryName(categories, installment.categoryId ?? purchase?.categoryId)} • Parcela {installment.installmentNumber}/{installment.installmentsCount}</p></div>
+                  <div className="min-w-0"><p className="truncate text-sm font-semibold">{installment.description}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{categoryName(categories, installment.categoryId ?? purchase?.categoryId)}</span>{installment.installmentsCount > 1 ? <Badge>{installment.installmentNumber}/{installment.installmentsCount}</Badge> : null}</div></div>
                   <div className="flex items-center justify-between gap-2 sm:justify-end"><span className="shrink-0 font-semibold">{formatCurrencyFromCents(installment.amountInCents)}</span>{purchase ? <Button aria-label={`Editar ${installment.description}`} className="min-h-9 px-2" disabled={actionsDisabled || invoice.paidInCents > 0 || paid} onClick={() => onEditPurchase(purchase)} variant="ghost"><Pencil className="h-4 w-4" /></Button> : null}{purchase ? <Button aria-label={`Excluir ${installment.description}`} className="min-h-9 px-2" disabled={actionsDisabled || invoice.paidInCents > 0 || paid} onClick={() => onRemovePurchase(purchase)} variant="ghost"><Trash2 className="h-4 w-4" /></Button> : null}</div>
                 </div>
               ))}</div>
@@ -92,7 +94,7 @@ export function InvoiceView({ actionsDisabled = false, card, categories, install
 }
 
 function InvoiceMetric({ emphasis = false, label, value }: { emphasis?: boolean; label: string; value: string }) {
-  return <div className={`rounded-lg px-3 py-3 ${emphasis ? "bg-emerald-600 text-white" : "bg-white dark:bg-slate-800"}`}><p className={`text-xs ${emphasis ? "text-emerald-100" : "text-slate-500"}`}>{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>;
+  return <div className={`rounded-surface px-3 py-3 ${emphasis ? "bg-primary text-primary-foreground shadow-sm" : "bg-surface"}`}><p className={`text-xs ${emphasis ? "text-primary-foreground/75" : "text-muted-foreground"}`}>{label}</p><p className={`mt-1 font-semibold ${emphasis ? "text-2xl" : "text-lg"}`}>{value}</p></div>;
 }
 
 function groupItemsByDate(items: ReturnType<typeof buildInvoiceItems>) {

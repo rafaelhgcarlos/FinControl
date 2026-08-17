@@ -68,7 +68,7 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
 
   await page.goto("/app/cards");
   await expect(page.getByText("Cartao E2E")).toBeVisible();
-  await expect(page.getByText("R$ 300,00")).toBeVisible();
+  await expect(page.getByText("R$ 300,00", { exact: true })).toBeVisible();
 
   await openGlobalLauncher(page);
   await page.getByRole("button", { name: /Compra no cartao/ }).click();
@@ -78,7 +78,7 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
   await purchaseDialog.getByRole("button", { name: "Cancelar" }).click();
   await page.getByRole("link", { name: /Cartao E2E/ }).click();
   await expect(page.getByText("Compra parcelada E2E").first()).toBeVisible();
-  await expect(page.getByText(/Parcela 1\/3/)).toBeVisible();
+  await expect(page.getByText("1/3", { exact: true })).toBeVisible();
 
   await page.goto("/app/recurring");
   await expect(page.getByText("Recorrencia E2E")).toBeVisible();

@@ -1,11 +1,13 @@
 export const collections = {
   accounts: "accounts",
+  budgets: "budgets",
   cardInstallments: "cardInstallments",
   cardInvoices: "cardInvoices",
   cardPayments: "cardPayments",
   cardPurchases: "cardPurchases",
   cards: "cards",
   categories: "categories",
+  goals: "goals",
   monthlySummaries: "monthlySummaries",
   recurringTransactions: "recurringTransactions",
   transactions: "transactions",

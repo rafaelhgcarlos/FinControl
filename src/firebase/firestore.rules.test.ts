@@ -145,6 +145,35 @@ function recurringTransactionData(userId = userA) {
   };
 }
 
+function budgetData(userId = userA) {
+  return {
+    userId,
+    createdAt: now,
+    updatedAt: now,
+    name: "Mercado mensal",
+    categoryId: "category-a",
+    limitInCents: 100000,
+    startDate: now,
+    endDate: Timestamp.fromDate(new Date("2026-08-31T23:59:59.000Z")),
+    status: "ACTIVE",
+  };
+}
+
+function goalData(userId = userA) {
+  return {
+    userId,
+    createdAt: now,
+    updatedAt: now,
+    name: "Reserva",
+    targetAmountInCents: 500000,
+    currentAmountInCents: 100000,
+    deadline: null,
+    category: "Emergencia",
+    icon: "Target",
+    status: "ACTIVE",
+  };
+}
+
 async function seedPrivateDoc(collectionName: string, id: string, data: Record<string, unknown>) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), collectionName, id), data);
@@ -254,7 +283,7 @@ describe("Firestore security rules", () => {
     const dbA = authedDb(userA);
     const dbB = authedDb(userB);
     const publicDb = testEnv.unauthenticatedContext().firestore();
-    const privateCollections = ["salaries", "balances", "expenses", "history", "goals", "salarios", "saldos", "gastos", "historico", "metas"];
+    const privateCollections = ["salaries", "balances", "expenses", "history", "salarios", "saldos", "gastos", "historico", "metas"];
 
     await assertSucceeds(getDoc(doc(dbA, "cards", "card-a")));
     await assertFails(getDoc(doc(dbB, "cards", "card-a")));
@@ -537,6 +566,30 @@ describe("Firestore security rules", () => {
     }));
     await assertFails(getDoc(doc(dbB, "recurringTransactions", "rent")));
     await assertFails(deleteDoc(doc(dbA, "recurringTransactions", "rent")));
+  });
+
+  it("protects budgets and validates their expense category and period", async () => {
+    const dbA = authedDb(userA);
+    const dbB = authedDb(userB);
+    await assertSucceeds(setDoc(doc(dbA, "categories", "category-a"), categoryData(userA)));
+    await assertSucceeds(setDoc(doc(dbA, "budgets", "monthly"), budgetData(userA)));
+    await assertFails(getDoc(doc(dbB, "budgets", "monthly")));
+    await assertFails(setDoc(doc(dbA, "budgets", "spoof"), budgetData(userB)));
+    await assertFails(setDoc(doc(dbA, "budgets", "invalid"), { ...budgetData(userA), endDate: Timestamp.fromDate(new Date("2026-07-31T12:00:00.000Z")) }));
+    await assertSucceeds(updateDoc(doc(dbA, "budgets", "monthly"), { status: "ARCHIVED", updatedAt: now }));
+    await assertFails(deleteDoc(doc(dbA, "budgets", "monthly")));
+  });
+
+  it("protects goals and accepts completion only after the target", async () => {
+    const dbA = authedDb(userA);
+    const dbB = authedDb(userB);
+    await assertSucceeds(setDoc(doc(dbA, "goals", "reserve"), goalData(userA)));
+    await assertFails(getDoc(doc(dbB, "goals", "reserve")));
+    await assertFails(setDoc(doc(dbA, "goals", "spoof"), goalData(userB)));
+    await assertFails(updateDoc(doc(dbA, "goals", "reserve"), { status: "COMPLETED", updatedAt: now }));
+    await assertSucceeds(updateDoc(doc(dbA, "goals", "reserve"), { currentAmountInCents: 500000, status: "COMPLETED", updatedAt: now }));
+    await assertSucceeds(updateDoc(doc(dbA, "goals", "reserve"), { status: "ARCHIVED", updatedAt: now }));
+    await assertFails(deleteDoc(doc(dbA, "goals", "reserve")));
   });
 
   it("allows monthly summary increments only for the authenticated owner", async () => {

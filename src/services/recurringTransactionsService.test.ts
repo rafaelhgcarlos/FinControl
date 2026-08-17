@@ -25,6 +25,11 @@ describe("recurring transaction scheduling", () => {
     expect(toSaoPauloDateKey(advanceRecurringDate(new Date("2026-08-15T12:00:00-03:00"), "MONTHLY"))).toBe("2026-09-15");
     expect(toSaoPauloDateKey(advanceRecurringDate(new Date("2026-08-15T12:00:00-03:00"), "YEARLY"))).toBe("2027-08-15");
   });
+
+  it("ajusta recorrencias no fim do mes sem pular fevereiro", () => {
+    expect(toSaoPauloDateKey(advanceRecurringDate(new Date("2027-01-31T12:00:00-03:00"), "MONTHLY", 31))).toBe("2027-02-28");
+    expect(toSaoPauloDateKey(advanceRecurringDate(new Date("2027-02-28T12:00:00-03:00"), "MONTHLY", 31))).toBe("2027-03-31");
+  });
 });
 
 function recurring(overrides: Partial<RecurringTransaction> = {}): RecurringTransaction {

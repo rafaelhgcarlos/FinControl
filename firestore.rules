@@ -230,6 +230,38 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/cards/$(cardId)).data.userId == request.auth.uid;
     }
 
+    function validBudget() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'name', 'categoryId', 'limitInCents', 'startDate', 'endDate', 'status'];
+      let optional = ['id'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.name is string
+        && request.resource.data.categoryId is string
+        && request.resource.data.limitInCents is int
+        && request.resource.data.limitInCents > 0
+        && request.resource.data.startDate is timestamp
+        && request.resource.data.endDate is timestamp
+        && request.resource.data.endDate >= request.resource.data.startDate
+        && request.resource.data.status in ['ACTIVE', 'ARCHIVED']
+        && categoryAcceptsTransaction(request.resource.data.categoryId, 'EXPENSE');
+    }
+
+    function validGoal() {
+      let required = ['userId', 'createdAt', 'updatedAt', 'name', 'targetAmountInCents', 'currentAmountInCents', 'deadline', 'category', 'icon', 'status'];
+      let optional = ['id'];
+      return commonPrivateCreateFields(required, optional)
+        && request.resource.data.name is string
+        && request.resource.data.targetAmountInCents is int
+        && request.resource.data.targetAmountInCents > 0
+        && request.resource.data.currentAmountInCents is int
+        && request.resource.data.currentAmountInCents >= 0
+        && (request.resource.data.deadline is timestamp || request.resource.data.deadline == null)
+        && (request.resource.data.category is string || request.resource.data.category == null)
+        && request.resource.data.icon is string
+        && request.resource.data.status in ['ACTIVE', 'COMPLETED', 'ARCHIVED']
+        && (request.resource.data.status != 'COMPLETED'
+          || request.resource.data.currentAmountInCents >= request.resource.data.targetAmountInCents);
+    }
+
     function validGenericPrivateDocument() {
       let required = ['userId', 'createdAt', 'updatedAt'];
       let optional = [
@@ -256,8 +288,6 @@ service cloud.firestore {
     function isGenericPrivateCollection(collectionName) {
       return collectionName in [
         'cards',
-        'budgets',
-        'goals',
         'salaries',
         'balances',
         'expenses',
@@ -343,6 +373,20 @@ service cloud.firestore {
       allow create: if ownsIncomingResource() && validMonthlySummary();
       allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validMonthlySummary();
       allow delete: if ownsExistingResource();
+    }
+
+    match /budgets/{documentId} {
+      allow read: if ownsExistingResource();
+      allow create: if ownsIncomingResource() && validBudget();
+      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validBudget();
+      allow delete: if false;
+    }
+
+    match /goals/{documentId} {
+      allow read: if ownsExistingResource();
+      allow create: if ownsIncomingResource() && validGoal();
+      allow update: if ownsExistingResource() && ownsIncomingResource() && userIdUnchanged() && validGoal();
+      allow delete: if false;
     }
 
     match /cards/{documentId} {

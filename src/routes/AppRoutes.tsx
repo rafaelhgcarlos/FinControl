@@ -1,4 +1,4 @@
-import { CalendarDays, Landmark, PiggyBank, Target } from "lucide-react";
+import { Landmark } from "lucide-react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { ProtectedRoute, PublicOnlyRoute } from "../components/ProtectedRoute";
@@ -6,9 +6,12 @@ import { AccountsPage } from "../pages/AccountsPage";
 import { ForgotPasswordPage, LoginPage, RegisterPage } from "../pages/AuthPages";
 import { CategoriesPage } from "../pages/CategoriesPage";
 import { CardsPage } from "../pages/CardsPage";
+import { BudgetsPage } from "../pages/BudgetsPage";
+import { CalendarPage } from "../pages/CalendarPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { FeaturePage } from "../pages/FeaturePage";
 import { LandingPage } from "../pages/LandingPage";
+import { GoalsPage } from "../pages/GoalsPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { RecurringTransactionsPage } from "../pages/RecurringTransactionsPage";
@@ -33,9 +36,9 @@ export function AppRoutes() {
           <Route path="categories" element={<CategoriesPage />} />
           <Route path="cards" element={<CardsPage />} />
           <Route path="cards/:cardId" element={<CardsPage />} />
-          <Route path="budgets" element={<FeaturePage title="Orcamentos" description="Planeje limites de gastos por categoria." icon={PiggyBank} />} />
-          <Route path="goals" element={<FeaturePage title="Metas" description="Defina objetivos e acompanhe sua evolucao." icon={Target} />} />
-          <Route path="calendar" element={<FeaturePage title="Calendario" description="Visualize vencimentos, recorrencias e parcelas." icon={CalendarDays} />} />
+          <Route path="budgets" element={<BudgetsPage />} />
+          <Route path="goals" element={<GoalsPage />} />
+          <Route path="calendar" element={<CalendarPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

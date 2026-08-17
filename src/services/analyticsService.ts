@@ -7,6 +7,7 @@ import type { CardInvoice, CardPurchase, CreditCard } from "../types/creditCard"
 import type { MonthlySummary } from "../types/monthlySummary";
 import type { Transaction } from "../types/transaction";
 import { listAccounts } from "./accountsService";
+import { listBudgetsWithUsage } from "./budgetsService";
 import { listCards, listInvoices, listPurchases } from "./cardsService";
 import { listCategories } from "./categoriesService";
 import { listMonthlySummaries } from "./monthlySummariesService";
@@ -68,15 +69,6 @@ export type UpcomingInvoice = {
   dueDate: Date;
   daysUntilDue: number;
   status: CardInvoice["status"];
-};
-
-type BudgetSnapshot = {
-  userId: string;
-  categoryId?: string;
-  name?: string;
-  limitInCents?: number;
-  spentInCents?: number;
-  status?: string;
 };
 
 export type GoalProgress = {
@@ -207,8 +199,7 @@ export function isOptionalAnalyticsQueryUnavailable(error: unknown) {
 }
 
 async function listBudgetSnapshots(userId: string) {
-  const snapshot = await getDocs(query(collection(firestore, "budgets"), where("userId", "==", userId), limit(50)));
-  return snapshot.docs.map((item) => item.data() as BudgetSnapshot);
+  return listBudgetsWithUsage(userId);
 }
 
 async function listGoalSnapshots(userId: string) {

@@ -128,7 +128,8 @@ export async function processDueRecurringTransactions(
       processed += 1;
     }
     if (dueDates.length > 0) {
-      const nextOccurrenceDate = dueDates.reduce((next) => advanceRecurringDate(next, recurrence.frequency), recurrence.nextOccurrenceDate);
+      const anchorDay = recurrence.startDate.getDate();
+      const nextOccurrenceDate = dueDates.reduce((next) => advanceRecurringDate(next, recurrence.frequency, anchorDay), recurrence.nextOccurrenceDate);
       await updateDoc(doc(firestore, collections.recurringTransactions, recurrence.id), {
         nextOccurrenceDate: Timestamp.fromDate(nextOccurrenceDate),
         lastProcessedDate: Timestamp.fromDate(dueDates.at(-1) ?? recurrence.nextOccurrenceDate),
@@ -148,17 +149,27 @@ export function resolveDueOccurrences(recurrence: RecurringTransaction, today: D
 
   while (dates.length < maxOccurrences && next <= lastAllowed) {
     dates.push(next);
-    next = advanceRecurringDate(next, recurrence.frequency);
+    next = advanceRecurringDate(next, recurrence.frequency, recurrence.startDate.getDate());
   }
 
   return dates;
 }
 
-export function advanceRecurringDate(date: Date, frequency: RecurringFrequency) {
+export function advanceRecurringDate(date: Date, frequency: RecurringFrequency, anchorDay = date.getDate()) {
   const next = new Date(date);
   if (frequency === "WEEKLY") next.setDate(next.getDate() + 7);
-  if (frequency === "MONTHLY") next.setMonth(next.getMonth() + 1);
-  if (frequency === "YEARLY") next.setFullYear(next.getFullYear() + 1);
+  if (frequency === "MONTHLY") {
+    next.setDate(1);
+    next.setMonth(next.getMonth() + 1);
+    next.setDate(Math.min(anchorDay, new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()));
+  }
+  if (frequency === "YEARLY") {
+    const month = next.getMonth();
+    next.setDate(1);
+    next.setFullYear(next.getFullYear() + 1);
+    next.setMonth(month);
+    next.setDate(Math.min(anchorDay, new Date(next.getFullYear(), month + 1, 0).getDate()));
+  }
   return next;
 }
 

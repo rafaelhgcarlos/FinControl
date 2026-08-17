@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CreditCard } from "../../../types/creditCard";
 import { CardVisual } from "./CardVisual";
 import { getLimitUsage } from "./LimitUsage";
@@ -22,6 +22,8 @@ const card: CreditCard = {
   updatedAt: now,
   userId: "user-1",
 };
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("CardVisual", () => {
   it("mantém a compra como ação principal e agrupa as demais em menu acessível", () => {
@@ -48,6 +50,14 @@ describe("CardVisual", () => {
     const progress = screen.getByRole("progressbar", { name: "Percentual do limite utilizado" });
     expect(progress).toHaveAttribute("aria-valuenow", "25000");
     expect(screen.getByText(/25% de/)).toBeInTheDocument();
+  });
+
+  it("usa Bottom Sheet para as ações secundárias no mobile", () => {
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    render(<MemoryRouter><CardVisual card={card} onArchive={vi.fn()} onDelete={vi.fn()} onEdit={vi.fn()} onPurchase={vi.fn()} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações" }));
+    expect(screen.getByRole("dialog", { name: "Mais ações" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Apagar cartão" })).toHaveClass("text-danger");
   });
 });
 

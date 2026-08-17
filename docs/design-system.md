@@ -31,6 +31,8 @@ O FinControl usa um design system leve, construído com Tailwind, variáveis CSS
 - `Tabs`: navegação entre seções com semântica `tablist`/`tab`.
 - `LoadingState`, `Skeleton`, `CardSkeleton`, `ListSkeleton`, `TableSkeleton` e `DashboardSkeleton`: spinner para espera curta e skeletons que preservam a estrutura do conteúdo.
 - `Progress`: representa apenas percentuais derivados de valores reais; não use progresso fictício para operações de duração indeterminada.
+- `FormActions` e `useFormState`: padronizam rodapé sticky, estados inicial/modificado/salvando/salvo e confirmação antes de descartar alterações.
+- `BottomSheet`: concentra ações rápidas no mobile com backdrop, safe area, scroll interno, focus trap e footer sticky opcional.
 - `EmptyState`: explica por que não há conteúdo e oferece uma próxima ação quando ela existe.
 
 ## Regras de uso

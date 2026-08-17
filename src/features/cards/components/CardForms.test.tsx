@@ -14,9 +14,9 @@ function initialForm(installmentsCount = 1): CardPurchaseInput {
   return { cardId: card.id, categoryId: category.id, description: "Compra", amountInCents: 12000, purchaseDate: now, installmentsCount, firstInstallmentDate: now, idempotencyKey: "stable-key" };
 }
 
-function PurchaseHarness({ editing = false, form: initial = initialForm(), onClose = vi.fn(), onSubmit = vi.fn() }: { editing?: boolean; form?: CardPurchaseInput; onClose?: () => void; onSubmit?: () => void }) {
+function PurchaseHarness({ busy = false, editing = false, form: initial = initialForm(), onClose = vi.fn(), onSubmit = vi.fn() }: { busy?: boolean; editing?: boolean; form?: CardPurchaseInput; onClose?: () => void; onSubmit?: () => void }) {
   const [form, setForm] = useState(initial);
-  return <PurchaseFormModal busy={false} cards={[card]} categories={[category]} editing={editing} form={form} isOpen onChange={setForm} onClose={onClose} onSubmit={(event) => { event.preventDefault(); onSubmit(); }} />;
+  return <PurchaseFormModal busy={busy} cards={[card]} categories={[category]} editing={editing} form={form} isOpen onChange={setForm} onClose={onClose} onSubmit={(event) => { event.preventDefault(); onSubmit(); }} />;
 }
 
 describe("PurchaseFormModal", () => {
@@ -51,5 +51,43 @@ describe("PurchaseFormModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(onClose).toHaveBeenCalledOnce();
     expect(screen.getByLabelText("Descrição")).toHaveValue("Compra");
+  });
+
+  it("protege alterações ao fechar pelo X ou Escape", () => {
+    const onClose = vi.fn();
+    render(<PurchaseHarness onClose={onClose} />);
+    fireEvent.change(screen.getByLabelText("Descrição"), { target: { value: "Compra alterada" } });
+    expect(screen.getByText("Alterações não salvas")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(screen.getByRole("dialog", { name: "Descartar alterações?" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Continuar editando" }));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    expect(screen.getByRole("dialog", { name: "Descartar alterações?" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Continuar editando" }));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Nova compra no cartão" }), { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Descartar alterações" }));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("exibe erros junto aos campos e foca o primeiro inválido", () => {
+    render(<PurchaseHarness form={{ ...initialForm(), amountInCents: 0, description: "" }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Registrar" }));
+    const description = screen.getByLabelText("Descrição");
+    expect(description).toHaveFocus();
+    expect(description).toHaveAttribute("aria-invalid", "true");
+    expect(description).toHaveAttribute("aria-describedby", "purchase-description-error");
+    expect(screen.getByText("Descreva a compra para identificá-la na fatura.")).toBeVisible();
+  });
+
+  it("configura o foco inicial e bloqueia fechamento durante submissão", () => {
+    const onClose = vi.fn();
+    const { unmount } = render(<PurchaseHarness onClose={onClose} />);
+    expect(screen.getByLabelText("Descrição")).toHaveFocus();
+    unmount();
+    render(<PurchaseHarness busy onClose={onClose} />);
+    expect(screen.getByRole("button", { name: "Fechar" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Salvando..." })).toBeDisabled();
   });
 });

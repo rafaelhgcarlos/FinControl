@@ -6,12 +6,13 @@ import type { Category } from "../types/category";
 import type { TransactionType } from "../types/transaction";
 import { toDateInputValue } from "../utils/date";
 import { formatCurrencyFromCents, parseCurrencyToCents } from "../utils/money";
-import { Button } from "./Button";
 import { CurrencyInput } from "./CurrencyInput";
 import { FormField } from "./FormField";
 import { Input } from "./Input";
 import { Select } from "./Select";
 import { Textarea } from "./Textarea";
+import { FormActions } from "./ui/FormActions";
+import { focusFirstInvalidField, type FormStatus } from "../hooks/useFormState";
 
 type TransactionField = "amount" | "account" | "category" | "destination" | "date";
 type TransactionFormErrors = Partial<Record<TransactionField, string>>;
@@ -20,6 +21,7 @@ type TransactionFormProps = {
   accounts: Account[];
   categories: Category[];
   form: TransactionInput;
+  formStatus?: FormStatus;
   onCancel: () => void;
   onChange: (form: TransactionInput) => void;
   onSubmit: () => void | Promise<void>;
@@ -46,7 +48,7 @@ export function validateTransactionForm(form: TransactionInput, accounts: Accoun
   return errors;
 }
 
-export function TransactionForm({ accounts, categories, form, onCancel, onChange, onSubmit, onTypeChange, submitting = false }: TransactionFormProps) {
+export function TransactionForm({ accounts, categories, form, formStatus = "initial", onCancel, onChange, onSubmit, onTypeChange, submitting = false }: TransactionFormProps) {
   const [errors, setErrors] = useState<TransactionFormErrors>({});
   const [moreOptionsOpen, setMoreOptionsOpen] = useState(Boolean(form.description?.trim()));
 
@@ -60,6 +62,10 @@ export function TransactionForm({ accounts, categories, form, onCancel, onChange
     const nextErrors = validateTransactionForm(form, accounts, categories);
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length === 0) void onSubmit();
+    else {
+      const ids: Record<TransactionField, string> = { amount: "transaction-value", account: "transaction-account", category: "transaction-category", destination: "transaction-destination", date: "transaction-date" };
+      focusFirstInvalidField((["amount", "account", "category", "destination", "date"] as const).filter((key) => nextErrors[key]).map((key) => ids[key]));
+    }
   }
 
   return (
@@ -169,10 +175,7 @@ export function TransactionForm({ accounts, categories, form, onCancel, onChange
         ) : null}
       </div>
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button className="w-full sm:w-auto" disabled={submitting} variant="secondary" onClick={onCancel}>Cancelar</Button>
-        <Button className="w-full sm:w-auto" disabled={submitting} type="submit">{submitting ? "Salvando..." : "Salvar"}</Button>
-      </div>
+      <FormActions busy={submitting} onCancel={onCancel} status={formStatus} />
     </form>
   );
 }

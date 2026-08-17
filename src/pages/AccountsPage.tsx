@@ -11,10 +11,13 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Select } from "../components/Select";
 import { Table } from "../components/Table";
-import { Toast } from "../components/Toast";
 import { TableSkeleton } from "../components/ui/Skeleton";
+import { FormActions } from "../components/ui/FormActions";
+import { UnsavedChangesDialog } from "../components/ui/UnsavedChangesDialog";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { useActionLock } from "../hooks/useActionLock";
+import { focusFirstInvalidField, useFormState, useUnsavedChangesGuard } from "../hooks/useFormState";
 import { accountTypes, archiveAccount, createAccount, listAccounts, updateAccount, type AccountInput } from "../services/accountsService";
 import type { Account, AccountStatus, AccountType } from "../types/account";
 import { getFriendlyFirebaseError } from "../utils/firebaseErrors";
@@ -32,13 +35,17 @@ const initialForm: AccountInput = {
 
 export function AccountsPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const { isActionPending, runAction } = useActionLock();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [form, setForm] = useState<AccountInput>(initialForm);
   const [editing, setEditing] = useState<Account | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string>();
+  const formState = useFormState(form, isOpen, isActionPending("account:save"));
+  const closeGuard = useUnsavedChangesGuard({ busy: isActionPending("account:save"), dirty: formState.dirty, onClose: () => setIsOpen(false) });
+  const requestClose = closeGuard.requestClose;
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -49,10 +56,10 @@ export function AccountsPage() {
 
   useEffect(() => {
     void loadData().catch((error) => {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel carregar as contas."));
+      toast.error(getFriendlyFirebaseError(error, "Nao foi possivel carregar as contas."));
       setLoading(false);
     });
-  }, [loadData]);
+  }, [loadData, toast]);
 
   const rows = useMemo(() => accounts.map((account) => ({
     account,
@@ -83,19 +90,21 @@ export function AccountsPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!user) return;
+    if (!form.name.trim()) { setNameError("Informe um nome para identificar a conta."); focusFirstInvalidField(["account-name"]); return; }
     await runAction("account:save", async () => {
       try {
         if (editing) {
           await updateAccount(editing.id, form);
-          setMessage("Conta atualizada.");
+          toast.success("Conta atualizada.");
         } else {
           await createAccount(user.uid, form);
-          setMessage("Conta criada.");
+          toast.success("Conta criada.");
         }
+        formState.markSaved(form);
         setIsOpen(false);
         await loadData();
       } catch (error) {
-        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar a conta."));
+        toast.error(getFriendlyFirebaseError(error, "Nao foi possivel salvar a conta."));
       }
     });
   }
@@ -105,10 +114,10 @@ export function AccountsPage() {
     await runAction(`account:archive:${account.id}`, async () => {
       try {
         await archiveAccount(account.id);
-        setMessage("Conta arquivada.");
+        toast.success("Conta arquivada.");
         await loadData();
       } catch (error) {
-        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel arquivar a conta."));
+        toast.error(getFriendlyFirebaseError(error, "Nao foi possivel arquivar a conta."));
       }
     });
   }
@@ -116,7 +125,6 @@ export function AccountsPage() {
   return (
     <>
       <PageHeader title="Contas" description="Cadastre contas e reconcilie saldos com os lancamentos." action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Nova conta</Button>} />
-      {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <Card>
         {loading ? <TableSkeleton label="Carregando contas" /> : rows.length === 0 ? (
           <EmptyState action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Criar primeira conta</Button>} title="Nenhuma conta cadastrada" description="Crie sua primeira conta para registrar movimentacoes." icon={<Landmark className="h-6 w-6" aria-hidden="true" />} />
@@ -176,9 +184,9 @@ export function AccountsPage() {
           </>
         )}
       </Card>
-      <Modal isOpen={isOpen} title={editing ? "Editar conta" : "Nova conta"} onClose={() => setIsOpen(false)}>
-        <form className="grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
-          <FormField id="account-name" label="Nome"><Input id="account-name" required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></FormField>
+      <Modal closeDisabled={isActionPending("account:save")} initialFocus="#account-name" isOpen={isOpen} title={editing ? "Editar conta" : "Nova conta"} onClose={requestClose}>
+        <form className="grid gap-4" noValidate onSubmit={(event) => void handleSubmit(event)}>
+          <FormField error={nameError} id="account-name" label="Nome"><Input id="account-name" required value={form.name} onChange={(event) => { setNameError(undefined); setForm({ ...form, name: event.target.value }); }} /></FormField>
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField id="account-type" label="Tipo"><Select id="account-type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as AccountType })}>{accountTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</Select></FormField>
             <FormField id="account-status" label="Status"><Select id="account-status" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as AccountStatus })}><option value="ACTIVE">Ativa</option><option value="ARCHIVED">Arquivada</option></Select></FormField>
@@ -189,9 +197,10 @@ export function AccountsPage() {
             <FormField id="account-color" label="Cor"><Input id="account-color" type="color" value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} /></FormField>
             <FormField id="account-icon" label="Icone"><Input id="account-icon" value={form.icon} onChange={(event) => setForm({ ...form, icon: event.target.value })} /></FormField>
           </div>
-          <div className="flex justify-end gap-2"><Button disabled={isActionPending("account:save")} variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button><Button disabled={isActionPending("account:save")} type="submit">{isActionPending("account:save") ? "Salvando..." : "Salvar"}</Button></div>
+          <FormActions busy={isActionPending("account:save")} onCancel={requestClose} status={formState.status} />
         </form>
       </Modal>
+      <UnsavedChangesDialog isOpen={closeGuard.confirmationOpen} onDiscard={closeGuard.discardChanges} onKeepEditing={closeGuard.keepEditing} />
     </>
   );
 }

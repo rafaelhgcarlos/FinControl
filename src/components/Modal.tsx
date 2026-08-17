@@ -7,10 +7,12 @@ type ModalProps = PropsWithChildren<{
   title: string;
   description?: string;
   footer?: ReactNode;
+  initialFocus?: string;
+  closeDisabled?: boolean;
   onClose: () => void;
 }>;
 
-export function Modal({ children, description, footer, isOpen, onClose, title }: ModalProps) {
+export function Modal({ children, closeDisabled = false, description, footer, initialFocus, isOpen, onClose, title }: ModalProps) {
   const dialogRef = useRef<HTMLElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -20,11 +22,11 @@ export function Modal({ children, description, footer, isOpen, onClose, title }:
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
     if (dialog && !dialog.contains(document.activeElement)) {
-      const firstFocusable = dialog.querySelector<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
+      const firstFocusable = (initialFocus ? dialog.querySelector<HTMLElement>(initialFocus) : null) ?? dialog.querySelector<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
       (firstFocusable ?? dialog).focus();
     }
     return () => previouslyFocused?.focus();
-  }, [isOpen]);
+  }, [initialFocus, isOpen]);
 
   if (!isOpen) {
     return null;
@@ -33,7 +35,7 @@ export function Modal({ children, description, footer, isOpen, onClose, title }:
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
-      onClose();
+      if (!closeDisabled) onClose();
       return;
     }
     if (event.key !== "Tab") return;
@@ -77,7 +79,7 @@ export function Modal({ children, description, footer, isOpen, onClose, title }:
               </p>
             ) : null}
           </div>
-          <IconButton aria-label="Fechar" onClick={onClose}>
+          <IconButton aria-label="Fechar" disabled={closeDisabled} onClick={onClose}>
             <X className="h-4 w-4" aria-hidden="true" />
           </IconButton>
         </div>

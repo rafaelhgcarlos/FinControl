@@ -10,10 +10,13 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Select } from "../components/Select";
 import { Table } from "../components/Table";
-import { Toast } from "../components/Toast";
 import { LoadingState } from "../components/LoadingState";
+import { FormActions } from "../components/ui/FormActions";
+import { UnsavedChangesDialog } from "../components/ui/UnsavedChangesDialog";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { useActionLock } from "../hooks/useActionLock";
+import { focusFirstInvalidField, useFormState, useUnsavedChangesGuard } from "../hooks/useFormState";
 import { archiveCategory, createCategory, listCategories, type CategoryInput } from "../services/categoriesService";
 import type { Category, CategoryType } from "../types/category";
 import { getFriendlyFirebaseError } from "../utils/firebaseErrors";
@@ -27,12 +30,16 @@ const initialForm: CategoryInput = {
 
 export function CategoriesPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const { isActionPending, runAction } = useActionLock();
   const [categories, setCategories] = useState<Category[]>([]);
   const [form, setForm] = useState<CategoryInput>(initialForm);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string>();
+  const formState = useFormState(form, isOpen, isActionPending("category:save"));
+  const closeGuard = useUnsavedChangesGuard({ busy: isActionPending("category:save"), dirty: formState.dirty, onClose: () => setIsOpen(false) });
+  const requestClose = closeGuard.requestClose;
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -43,23 +50,29 @@ export function CategoriesPage() {
 
   useEffect(() => {
     void loadData().catch((error) => {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel carregar categorias."));
+      toast.error(getFriendlyFirebaseError(error, "Nao foi possivel carregar categorias."));
       setLoading(false);
     });
-  }, [loadData]);
+  }, [loadData, toast]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!user) return;
+    if (!form.name.trim()) {
+      setNameError("Informe um nome para identificar a categoria.");
+      focusFirstInvalidField(["category-name"]);
+      return;
+    }
     await runAction("category:save", async () => {
       try {
         await createCategory(user.uid, form);
-        setMessage("Categoria criada.");
+        toast.success("Categoria criada.");
+        formState.markSaved(form);
         setForm(initialForm);
         setIsOpen(false);
         await loadData();
       } catch (error) {
-        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar a categoria."));
+        toast.error(getFriendlyFirebaseError(error, "Nao foi possivel salvar a categoria."));
       }
     });
   }
@@ -69,10 +82,10 @@ export function CategoriesPage() {
     await runAction(`category:archive:${category.id}`, async () => {
       try {
         await archiveCategory(category.id);
-        setMessage("Categoria arquivada.");
+        toast.success("Categoria arquivada.");
         await loadData();
       } catch (error) {
-        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel arquivar a categoria."));
+        toast.error(getFriendlyFirebaseError(error, "Nao foi possivel arquivar a categoria."));
       }
     });
   }
@@ -80,7 +93,6 @@ export function CategoriesPage() {
   return (
     <>
       <PageHeader title="Categorias" description="Use categorias padrao e personalize sua organizacao." action={<Button disabled={isActionPending()} onClick={() => setIsOpen(true)}><Plus className="h-4 w-4" aria-hidden="true" />Nova categoria</Button>} />
-      {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <Card>
         {loading ? <LoadingState label="Carregando categorias" /> : categories.length === 0 ? (
           <EmptyState action={<Button disabled={isActionPending()} onClick={() => setIsOpen(true)}><Plus className="h-4 w-4" aria-hidden="true" />Criar categoria</Button>} title="Nenhuma categoria" description="As categorias padrão são criadas automaticamente, e você também pode personalizar sua organização." icon={<Tags className="h-6 w-6" aria-hidden="true" />} />
@@ -130,17 +142,18 @@ export function CategoriesPage() {
           </>
         )}
       </Card>
-      <Modal isOpen={isOpen} title="Nova categoria" onClose={() => setIsOpen(false)}>
-        <form className="grid gap-4" onSubmit={(event) => void handleSubmit(event)}>
-          <FormField id="category-name" label="Nome"><Input id="category-name" required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></FormField>
+      <Modal closeDisabled={isActionPending("category:save")} initialFocus="#category-name" isOpen={isOpen} title="Nova categoria" onClose={requestClose}>
+        <form className="grid gap-4" noValidate onSubmit={(event) => void handleSubmit(event)}>
+          <FormField error={nameError} id="category-name" label="Nome"><Input id="category-name" required value={form.name} onChange={(event) => { setNameError(undefined); setForm({ ...form, name: event.target.value }); }} /></FormField>
           <div className="grid gap-4 sm:grid-cols-3">
             <FormField id="category-type" label="Tipo"><Select id="category-type" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value as CategoryType })}><option value="INCOME">Receita</option><option value="EXPENSE">Despesa</option></Select></FormField>
             <FormField id="category-color" label="Cor"><Input id="category-color" type="color" value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} /></FormField>
             <FormField id="category-icon" label="Icone"><Input id="category-icon" value={form.icon} onChange={(event) => setForm({ ...form, icon: event.target.value })} /></FormField>
           </div>
-          <div className="flex justify-end gap-2"><Button disabled={isActionPending("category:save")} variant="secondary" onClick={() => setIsOpen(false)}>Cancelar</Button><Button disabled={isActionPending("category:save")} type="submit">{isActionPending("category:save") ? "Salvando..." : "Salvar"}</Button></div>
+          <FormActions busy={isActionPending("category:save")} onCancel={requestClose} status={formState.status} />
         </form>
       </Modal>
+      <UnsavedChangesDialog isOpen={closeGuard.confirmationOpen} onDiscard={closeGuard.discardChanges} onKeepEditing={closeGuard.keepEditing} />
     </>
   );
 }

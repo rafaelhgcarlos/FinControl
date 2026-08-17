@@ -7,6 +7,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { IconButton } from "./IconButton";
 import { Skeleton } from "./Skeleton";
 import { Tabs } from "./Tabs";
+import { BottomSheet } from "./BottomSheet";
 
 describe("primitives do design system", () => {
   it("expõe estado de carregamento e impede múltiplas ações", () => {
@@ -40,5 +41,25 @@ describe("primitives do design system", () => {
   it("fornece skeleton sem anunciar conteúdo duplicado", () => {
     const { container } = render(<Skeleton className="h-4" />);
     expect(container.firstChild).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("mantém foco contido no Bottom Sheet, fecha por Escape e restaura o foco", () => {
+    const onClose = vi.fn();
+    const trigger = document.createElement("button");
+    document.body.appendChild(trigger);
+    trigger.focus();
+    const { unmount } = render(<BottomSheet footer={<Button>Concluir</Button>} isOpen onClose={onClose} title="Ações rápidas"><Button>Primeira ação</Button><Button>Última ação</Button></BottomSheet>);
+    expect(screen.getByRole("dialog", { name: "Ações rápidas" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Fechar" })).toHaveFocus();
+    screen.getByRole("button", { name: "Concluir" }).focus();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Fechar" })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Tab", shiftKey: true });
+    expect(screen.getByRole("button", { name: "Concluir" })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+    unmount();
+    expect(trigger).toHaveFocus();
+    trigger.remove();
   });
 });

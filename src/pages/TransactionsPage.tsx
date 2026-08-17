@@ -13,11 +13,13 @@ import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
 import { Select } from "../components/Select";
 import { Table } from "../components/Table";
-import { Toast } from "../components/Toast";
 import { TableSkeleton } from "../components/ui/Skeleton";
+import { UnsavedChangesDialog } from "../components/ui/UnsavedChangesDialog";
 import { TransactionForm } from "../components/TransactionForm";
 import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
 import { useActionLock } from "../hooks/useActionLock";
+import { useFormState, useUnsavedChangesGuard } from "../hooks/useFormState";
 import { listAccounts } from "../services/accountsService";
 import { listCategories } from "../services/categoriesService";
 import { createTransaction, deleteTransaction, listTransactionsPage, updateTransaction, type TransactionInput } from "../services/transactionsService";
@@ -47,6 +49,7 @@ function requestedTransactionType(value: string | null): TransactionType {
 
 export function TransactionsPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const { isActionPending, runAction } = useActionLock();
   const [searchParams, setSearchParams] = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -59,7 +62,9 @@ export function TransactionsPage() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [isOpen, setIsOpen] = useState(searchParams.get("new") === "1");
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
+  const formState = useFormState(form, isOpen, isActionPending("transaction:save"));
+  const closeGuard = useUnsavedChangesGuard({ busy: isActionPending("transaction:save"), dirty: formState.dirty, onClose: () => setIsOpen(false) });
+  const requestClose = closeGuard.requestClose;
 
   const activeAccounts = useMemo(() => accounts.filter((account) => account.status === "ACTIVE"), [accounts]);
   const activeCategories = useMemo(() => categories.filter((category) => category.status === "ACTIVE" && category.type === form.type), [categories, form.type]);
@@ -96,15 +101,15 @@ export function TransactionsPage() {
   }, [filters, user]);
 
   useEffect(() => {
-    void loadSupportData().catch((error) => setMessage(getFriendlyFirebaseError(error, "Nao foi possivel carregar contas e categorias.")));
-  }, [loadSupportData]);
+    void loadSupportData().catch((error) => toast.error(getFriendlyFirebaseError(error, "Nao foi possivel carregar contas e categorias.")));
+  }, [loadSupportData, toast]);
 
   useEffect(() => {
     void loadTransactions("reset").catch((error) => {
-      setMessage(getFriendlyFirebaseError(error, "Nao foi possivel carregar o historico."));
+      toast.error(getFriendlyFirebaseError(error, "Nao foi possivel carregar o historico."));
       setLoading(false);
     });
-  }, [loadTransactions]);
+  }, [loadTransactions, toast]);
 
   useEffect(() => {
     if (searchParams.get("new") === "1") {
@@ -151,15 +156,16 @@ export function TransactionsPage() {
       try {
         if (editing) {
           await updateTransaction(editing.id, form, accounts, categories, user.uid);
-          setMessage("Lancamento atualizado.");
+          toast.success("Lancamento atualizado.");
         } else {
           await createTransaction(user.uid, form, accounts, categories);
-          setMessage("Lancamento criado.");
+          toast.success("Lancamento criado.");
         }
+        formState.markSaved(form);
         setIsOpen(false);
         await loadTransactions("reset");
       } catch (error) {
-        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel salvar o lancamento."));
+        toast.error(getFriendlyFirebaseError(error, "Nao foi possivel salvar o lancamento."));
       }
     });
   }
@@ -169,10 +175,10 @@ export function TransactionsPage() {
     await runAction(`transaction:delete:${transaction.id}`, async () => {
       try {
         await deleteTransaction(transaction.id);
-        setMessage("Lancamento excluido.");
+        toast.success("Lancamento excluido.");
         await loadTransactions("reset");
       } catch (error) {
-        setMessage(getFriendlyFirebaseError(error, "Nao foi possivel excluir o lancamento."));
+        toast.error(getFriendlyFirebaseError(error, "Nao foi possivel excluir o lancamento."));
       }
     });
   }
@@ -189,7 +195,6 @@ export function TransactionsPage() {
   return (
     <>
       <PageHeader title="Transações" description="Registre receitas, despesas e transferências sem carregar todo o histórico." action={<Button disabled={isActionPending()} onClick={openCreate}><Plus className="h-4 w-4" aria-hidden="true" />Novo lançamento</Button>} />
-      {message ? <div className="mb-4"><Toast>{message}</Toast></div> : null}
       <Card className="mb-4">
         <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
           <FormField id="filter-start" label="Inicio"><Input id="filter-start" type="date" value={filters.startDate ? toDateInputValue(filters.startDate) : ""} onChange={(event) => setFilters({ ...filters, startDate: event.target.value ? new Date(`${event.target.value}T00:00:00.000Z`) : undefined })} /></FormField>
@@ -278,18 +283,20 @@ export function TransactionsPage() {
           </>
         )}
       </Card>
-      <Modal isOpen={isOpen} title={editing ? "Editar lançamento" : "Novo lançamento"} onClose={() => setIsOpen(false)}>
+      <Modal closeDisabled={isActionPending("transaction:save")} initialFocus="#transaction-value" isOpen={isOpen} title={editing ? "Editar lançamento" : "Novo lançamento"} onClose={requestClose}>
         <TransactionForm
           accounts={activeAccounts}
           categories={activeCategories}
           form={form}
-          onCancel={() => setIsOpen(false)}
+          formStatus={formState.status}
+          onCancel={requestClose}
           onChange={setForm}
           onSubmit={handleSubmit}
           onTypeChange={setFormType}
           submitting={isActionPending("transaction:save")}
         />
       </Modal>
+      <UnsavedChangesDialog isOpen={closeGuard.confirmationOpen} onDiscard={closeGuard.discardChanges} onKeepEditing={closeGuard.keepEditing} />
     </>
   );
 }

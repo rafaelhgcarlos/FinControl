@@ -14,7 +14,7 @@ import { listMonthlySummaries } from "./monthlySummariesService";
 import { listRecurringTransactions } from "./recurringTransactionsService";
 import { listTransactionsPage } from "./transactionsService";
 import { buildFinancialAlerts, type FinancialAlert } from "../business/alerts";
-import { endOfDay, endOfFinancialMonth, endOfMonth, endOfWeek, endOfYear, monthKey, monthShortLabel, startOfDay, startOfFinancialMonth, startOfMonth, startOfWeek, startOfYear } from "../utils/date";
+import { endOfDay, endOfMonth, endOfWeek, endOfYear, monthKey, monthShortLabel, startOfDay, startOfMonth, startOfWeek, startOfYear } from "../utils/date";
 
 export type PeriodPreset = "today" | "week" | "month" | "year" | "custom";
 
@@ -88,11 +88,11 @@ type GoalSnapshot = {
   status?: string;
 };
 
-export function getDefaultDashboardPeriod(financialMonthStartDay = 1): DashboardPeriod {
-  return resolvePeriod("month", undefined, undefined, financialMonthStartDay);
+export function getDefaultDashboardPeriod(): DashboardPeriod {
+  return resolvePeriod("month");
 }
 
-export function resolvePeriod(preset: PeriodPreset, customStart?: Date, customEnd?: Date, financialMonthStartDay = 1): DashboardPeriod {
+export function resolvePeriod(preset: PeriodPreset, customStart?: Date, customEnd?: Date): DashboardPeriod {
   const now = new Date();
   if (preset === "today") return { preset, startDate: startOfDay(now), endDate: endOfDay(now) };
   if (preset === "week") return { preset, startDate: startOfWeek(now), endDate: endOfWeek(now) };
@@ -104,7 +104,7 @@ export function resolvePeriod(preset: PeriodPreset, customStart?: Date, customEn
       endDate: customEnd ? endOfDay(customEnd) : endOfMonth(now),
     };
   }
-  return { preset: "month", startDate: startOfFinancialMonth(now, financialMonthStartDay), endDate: endOfFinancialMonth(now, financialMonthStartDay) };
+  return { preset: "month", startDate: startOfMonth(now), endDate: endOfMonth(now) };
 }
 
 export async function getFinancialAnalytics(userId: string, period: DashboardPeriod): Promise<FinancialAnalytics> {

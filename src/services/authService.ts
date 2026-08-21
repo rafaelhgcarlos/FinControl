@@ -48,6 +48,10 @@ export function authErrorMessage(error: unknown) {
     "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
     "auth/invalid-email": "Informe um e-mail válido.",
     "auth/user-not-found": "Não encontramos uma conta com este e-mail.",
+    "auth/user-disabled": "Esta conta foi desativada.",
+    "auth/operation-not-allowed": "O login por e-mail e senha não está habilitado no Firebase.",
+    "auth/network-request-failed": "Não foi possível acessar o Firebase. Verifique sua conexão.",
+    "auth/invalid-api-key": "A chave da API do Firebase é inválida ou não está autorizada para este domínio.",
     "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
     "auth/requires-recent-login": "Por segurança, entre novamente antes de excluir sua conta.",
   };

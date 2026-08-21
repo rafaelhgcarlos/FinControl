@@ -1,14 +1,16 @@
 import { CheckCircle2, LogOut, Menu, Plus, RefreshCw, WifiOff, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { logout } from "../services/authService";
 import { useSyncStatus } from "../contexts/SyncContext";
 import { BottomNavigation } from "./BottomNavigation";
 import { Button } from "./Button";
+import { IconButton } from "./ui/IconButton";
 import { Sidebar } from "./Sidebar";
 import { NewEntryLauncher, type NewEntryDestination } from "./NewEntryLauncher";
 import { getNavigationTitle } from "./navigation";
+import { isOnboardingEligible } from "../services/userService";
 
 export function AppShell() {
   const { profile } = useAuth();
@@ -17,6 +19,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
+  const onboardingLaunched = useRef(false);
   const title = getNavigationTitle(location.pathname);
   const syncLabel = sync.status === "offline" ? "Offline" : sync.status === "syncing" ? "Sincronizando" : "Sincronizado";
   const initials = (profile?.displayName || profile?.email || "FC")
@@ -36,6 +39,13 @@ export function AppShell() {
       void navigate("/app", { replace: true });
     }
   }, [location.pathname, location.search, navigate]);
+
+  useEffect(() => {
+    if (location.pathname === "/app/onboarding") onboardingLaunched.current = true;
+    if (onboardingLaunched.current || !isOnboardingEligible(profile)) return;
+    onboardingLaunched.current = true;
+    void navigate("/app/onboarding", { replace: true });
+  }, [location.pathname, navigate, profile]);
 
   function selectNewEntry(destination: NewEntryDestination) {
     setNewEntryOpen(false);
@@ -77,9 +87,9 @@ export function AppShell() {
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white dark:bg-emerald-500 dark:text-emerald-950">
                   {initials || "FC"}
                 </span>
-                <Button aria-label="Sair da conta" onClick={() => void logout()} variant="ghost" className="h-10 w-10 px-0" title="Sair da conta">
-                  <LogOut className="h-4 w-4" aria-hidden="true" />
-                </Button>
+                <IconButton aria-label="Sair da conta" onClick={() => void logout()}>
+                  <LogOut aria-hidden="true" />
+                </IconButton>
               </div>
             </div>
           </header>

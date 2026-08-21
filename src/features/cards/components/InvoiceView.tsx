@@ -4,6 +4,7 @@ import { Button } from "../../../components/Button";
 import { EmptyState } from "../../../components/EmptyState";
 import { Input } from "../../../components/Input";
 import { Select } from "../../../components/Select";
+import { IconButton } from "../../../components/ui/IconButton";
 import type { Category } from "../../../types/category";
 import type { CardInstallment, CardInvoice, CardPayment, CardPurchase, CreditCard } from "../../../types/creditCard";
 import { formatDatePtBr } from "../../../utils/date";
@@ -81,7 +82,7 @@ export function InvoiceView({ actionsDisabled = false, card, categories, install
               <div className="space-y-2">{group.map(({ installment, purchase }) => (
                 <div className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between" key={installment.id}>
                   <div className="min-w-0"><p className="truncate text-sm font-semibold">{installment.description}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{categoryName(categories, installment.categoryId ?? purchase?.categoryId)}</span>{installment.installmentsCount > 1 ? <Badge>{installment.installmentNumber}/{installment.installmentsCount}</Badge> : null}</div></div>
-                  <div className="flex items-center justify-between gap-2 sm:justify-end"><span className="shrink-0 font-semibold">{formatCurrencyFromCents(installment.amountInCents)}</span>{purchase ? <Button aria-label={`Editar ${installment.description}`} className="min-h-9 px-2" disabled={actionsDisabled || invoice.paidInCents > 0 || paid} onClick={() => onEditPurchase(purchase)} variant="ghost"><Pencil className="h-4 w-4" /></Button> : null}{purchase ? <Button aria-label={`Excluir ${installment.description}`} className="min-h-9 px-2" disabled={actionsDisabled || invoice.paidInCents > 0 || paid} onClick={() => onRemovePurchase(purchase)} variant="ghost"><Trash2 className="h-4 w-4" /></Button> : null}</div>
+                  <div className="flex items-center justify-between gap-2 sm:justify-end"><span className="shrink-0 font-semibold">{formatCurrencyFromCents(installment.amountInCents)}</span>{purchase ? <IconButton aria-label={`Editar ${installment.description}`} disabled={actionsDisabled || invoice.paidInCents > 0 || paid} onClick={() => onEditPurchase(purchase)}><Pencil /></IconButton> : null}{purchase ? <IconButton aria-label={`Excluir ${installment.description}`} disabled={actionsDisabled || invoice.paidInCents > 0 || paid} onClick={() => onRemovePurchase(purchase)}><Trash2 /></IconButton> : null}</div>
                 </div>
               ))}</div>
             </section>

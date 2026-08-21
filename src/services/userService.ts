@@ -2,18 +2,23 @@ import { collection, deleteDoc, doc, getDocs, getDoc, limit, query, setDoc, upda
 import { deleteUser, EmailAuthProvider, reauthenticateWithCredential, type User } from "firebase/auth";
 import { firebaseAuth, firestore } from "../firebase/config";
 import { collections, privateUserCollections } from "../firebase/collections";
-import type { UserProfile, UserProfileUpdate } from "../types/user";
+import type { OnboardingStatus, OnboardingStep, UserProfile, UserProfileUpdate } from "../types/user";
+
+export const currentOnboardingVersion = 1;
 
 const defaultPreferences = {
   locale: "pt-BR" as const,
   currency: "BRL" as const,
   timeZone: "America/Sao_Paulo" as const,
-  financialMonthStartDay: 1,
+  onboardingStatus: "NOT_STARTED" as const,
+  onboardingStep: 1 as const,
+  onboardingCompletedAt: null,
+  onboardingVersion: currentOnboardingVersion,
 };
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   const snapshot = await getDoc(doc(firestore, collections.users, userId));
-  return snapshot.exists() ? normalizeUserProfile(snapshot.data() as Partial<UserProfile>) : null;
+  return snapshot.exists() ? normalizeUserProfile(snapshot.data()) : null;
 }
 
 export async function ensureUserProfile(user: User): Promise<UserProfile> {
@@ -27,7 +32,8 @@ export async function ensureUserProfile(user: User): Promise<UserProfile> {
   return profile;
 }
 
-function normalizeUserProfile(profile: Partial<UserProfile>): UserProfile {
+export function normalizeUserProfile(profile: Partial<UserProfile> & Record<string, unknown>): UserProfile {
+  const hasOnboardingState = typeof profile.onboardingStatus === "string";
   return {
     id: profile.id ?? "",
     email: profile.email ?? null,
@@ -35,12 +41,43 @@ function normalizeUserProfile(profile: Partial<UserProfile>): UserProfile {
     locale: "pt-BR",
     currency: "BRL",
     timeZone: "America/Sao_Paulo",
-    financialMonthStartDay: profile.financialMonthStartDay ?? 1,
+    onboardingStatus: normalizeOnboardingStatus(profile.onboardingStatus, hasOnboardingState),
+    onboardingStep: normalizeOnboardingStep(profile.onboardingStep),
+    onboardingCompletedAt: normalizeOptionalDate(profile.onboardingCompletedAt),
+    onboardingVersion: typeof profile.onboardingVersion === "number" ? profile.onboardingVersion : currentOnboardingVersion,
   };
 }
 
 export async function updateUserProfile(userId: string, changes: UserProfileUpdate) {
   await updateDoc(doc(firestore, collections.users, userId), changes);
+}
+
+export function updateOnboardingState(userId: string, status: OnboardingStatus, step: OnboardingStep, completedAt: Date | null = null) {
+  return updateUserProfile(userId, {
+    onboardingStatus: status,
+    onboardingStep: step,
+    onboardingCompletedAt: completedAt,
+    onboardingVersion: currentOnboardingVersion,
+  });
+}
+
+export function isOnboardingEligible(profile: UserProfile | null) {
+  return Boolean(profile && profile.onboardingVersion === currentOnboardingVersion && (profile.onboardingStatus === "NOT_STARTED" || profile.onboardingStatus === "IN_PROGRESS"));
+}
+
+function normalizeOnboardingStatus(value: unknown, hasState: boolean): OnboardingStatus {
+  if (value === "NOT_STARTED" || value === "IN_PROGRESS" || value === "COMPLETED" || value === "SKIPPED") return value;
+  return hasState ? "NOT_STARTED" : "SKIPPED";
+}
+
+function normalizeOnboardingStep(value: unknown): OnboardingStep {
+  return value === 2 || value === 3 || value === 4 ? value : 1;
+}
+
+function normalizeOptionalDate(value: unknown) {
+  if (value instanceof Date) return value;
+  if (value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function") return value.toDate();
+  return null;
 }
 
 export type AccountDeletionProgress = { collectionName: string; deletedDocuments: number; completedCollections: number; totalCollections: number };

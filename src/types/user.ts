@@ -1,3 +1,6 @@
+export type OnboardingStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED" | "SKIPPED";
+export type OnboardingStep = 1 | 2 | 3 | 4;
+
 export type UserProfile = {
   id: string;
   email: string | null;
@@ -5,7 +8,10 @@ export type UserProfile = {
   locale: "pt-BR";
   currency: "BRL";
   timeZone: "America/Sao_Paulo";
-  financialMonthStartDay: number;
+  onboardingStatus: OnboardingStatus;
+  onboardingStep: OnboardingStep;
+  onboardingCompletedAt: Date | null;
+  onboardingVersion: number;
 };
 
-export type UserProfileUpdate = Partial<Pick<UserProfile, "displayName" | "currency" | "timeZone" | "financialMonthStartDay">>;
+export type UserProfileUpdate = Partial<Pick<UserProfile, "displayName" | "onboardingStatus" | "onboardingStep" | "onboardingCompletedAt" | "onboardingVersion">>;

@@ -331,30 +331,38 @@ service cloud.firestore {
     }
 
     function validUserProfileCreate(userId) {
-      return request.resource.data.keys().hasAll(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone', 'financialMonthStartDay'])
-        && request.resource.data.keys().hasOnly(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone', 'financialMonthStartDay'])
+      return request.resource.data.keys().hasAll(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone'])
+        && request.resource.data.keys().hasOnly(['id', 'email', 'displayName', 'locale', 'currency', 'timeZone', 'financialMonthStartDay', 'onboardingStatus', 'onboardingStep', 'onboardingCompletedAt', 'onboardingVersion'])
         && request.resource.data.id == userId
         && (request.resource.data.email is string || request.resource.data.email == null)
         && (request.resource.data.displayName is string || request.resource.data.displayName == null)
         && request.resource.data.locale == 'pt-BR'
         && request.resource.data.currency == 'BRL'
         && request.resource.data.timeZone == 'America/Sao_Paulo'
-        && request.resource.data.financialMonthStartDay is int
-        && request.resource.data.financialMonthStartDay >= 1
-        && request.resource.data.financialMonthStartDay <= 28;
+        && (!('financialMonthStartDay' in request.resource.data)
+          || (request.resource.data.financialMonthStartDay is int
+            && request.resource.data.financialMonthStartDay >= 1
+            && request.resource.data.financialMonthStartDay <= 28))
+        && validOnboardingState();
     }
 
     function validUserProfileUpdate(userId) {
       return resource.data.id == userId
         && request.resource.data.id == userId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'currency', 'timeZone', 'financialMonthStartDay'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'onboardingStatus', 'onboardingStep', 'onboardingCompletedAt', 'onboardingVersion'])
         && (!('displayName' in request.resource.data) || request.resource.data.displayName is string || request.resource.data.displayName == null)
-        && (!('currency' in request.resource.data) || request.resource.data.currency == 'BRL')
-        && (!('timeZone' in request.resource.data) || request.resource.data.timeZone == 'America/Sao_Paulo')
-        && (!('financialMonthStartDay' in request.resource.data)
-          || (request.resource.data.financialMonthStartDay is int
-            && request.resource.data.financialMonthStartDay >= 1
-            && request.resource.data.financialMonthStartDay <= 28));
+        && validOnboardingState();
+    }
+
+    function validOnboardingState() {
+      return (!('onboardingStatus' in request.resource.data)
+          || request.resource.data.onboardingStatus in ['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED'])
+        && (!('onboardingStep' in request.resource.data)
+          || (request.resource.data.onboardingStep is int && request.resource.data.onboardingStep >= 1 && request.resource.data.onboardingStep <= 4))
+        && (!('onboardingCompletedAt' in request.resource.data)
+          || request.resource.data.onboardingCompletedAt == null || request.resource.data.onboardingCompletedAt is timestamp)
+        && (!('onboardingVersion' in request.resource.data)
+          || (request.resource.data.onboardingVersion is int && request.resource.data.onboardingVersion >= 1));
     }
 
     match /users/{userId} {

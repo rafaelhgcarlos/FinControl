@@ -2,6 +2,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "../../../components/Button";
 import { Badge } from "../../../components/Badge";
 import { EmptyState } from "../../../components/EmptyState";
+import { IconButton } from "../../../components/ui/IconButton";
 import type { Account } from "../../../types/account";
 import type { Category } from "../../../types/category";
 import type { CardInstallment, CardPayment, CardPurchase } from "../../../types/creditCard";
@@ -20,7 +21,7 @@ export function PurchasesList({ actionsDisabled = false, categories, onEditPurch
   return <div className="space-y-2">{purchases.map((purchase) => (
     <div className="flex flex-col gap-3 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between" key={purchase.id}>
       <div className="min-w-0"><p className="truncate font-medium">{purchase.description}</p><div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{categoryName(categories, purchase.categoryId)} • {formatDatePtBr(purchase.purchaseDate)}</span>{purchase.installmentsCount > 1 ? <Badge>{purchase.installmentsCount} parcelas</Badge> : null}</div></div>
-      <div className="flex items-center justify-between gap-2 sm:justify-end"><span className="font-semibold">{formatCurrencyFromCents(purchase.amountInCents)}</span><Button aria-label="Editar compra" className="min-h-9 px-2" disabled={actionsDisabled} onClick={() => onEditPurchase(purchase)} variant="ghost"><Pencil className="h-4 w-4" /></Button><Button aria-label="Excluir compra" className="min-h-9 px-2" disabled={actionsDisabled} onClick={() => onRemovePurchase(purchase)} variant="ghost"><Trash2 className="h-4 w-4" /></Button></div>
+      <div className="flex items-center justify-between gap-2 sm:justify-end"><span className="font-semibold">{formatCurrencyFromCents(purchase.amountInCents)}</span><IconButton aria-label="Editar compra" disabled={actionsDisabled} onClick={() => onEditPurchase(purchase)}><Pencil /></IconButton><IconButton aria-label="Excluir compra" disabled={actionsDisabled} onClick={() => onRemovePurchase(purchase)}><Trash2 /></IconButton></div>
     </div>
   ))}</div>;
 }
@@ -36,7 +37,7 @@ export function PaymentsList({ accounts, actionsDisabled = false, onRemovePaymen
   if (payments.length === 0) return <EmptyState className="mt-0" description="Os pagamentos aparecerão após a quitação total ou parcial de uma fatura." size="compact" title="Nenhum pagamento registrado" />;
   return <div className="space-y-2">{payments.map((payment) => {
     const account = accounts.find((item) => item.id === payment.accountId);
-    return <div className="flex flex-col gap-3 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between" key={payment.id}><div><p className="font-medium">{account?.name ?? "Conta"}</p><p className="mt-1 text-xs text-slate-500">{formatDatePtBr(payment.paidAt)}</p></div><div className="flex items-center justify-between gap-2"><span className="font-semibold">{formatCurrencyFromCents(payment.amountInCents)}</span><Button aria-label="Remover pagamento" className="min-h-9 px-2" disabled={actionsDisabled} onClick={() => onRemovePayment(payment)} variant="ghost"><Trash2 className="h-4 w-4" /></Button></div></div>;
+    return <div className="flex flex-col gap-3 rounded-md border border-slate-200 p-3 text-sm dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between" key={payment.id}><div><p className="font-medium">{account?.name ?? "Conta"}</p><p className="mt-1 text-xs text-slate-500">{formatDatePtBr(payment.paidAt)}</p></div><div className="flex items-center justify-between gap-2"><span className="font-semibold">{formatCurrencyFromCents(payment.amountInCents)}</span><IconButton aria-label="Remover pagamento" disabled={actionsDisabled} onClick={() => onRemovePayment(payment)}><Trash2 /></IconButton></div></div>;
   })}</div>;
 }
 

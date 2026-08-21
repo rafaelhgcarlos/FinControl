@@ -2,8 +2,8 @@ import { onAuthStateChanged, type User } from "firebase/auth";
 import { useCallback, useContext, useEffect, useMemo, useState, createContext, type Context, type PropsWithChildren } from "react";
 import { firebaseAuth } from "../firebase/config";
 import { ensureDefaultCategories } from "../services/categoriesService";
-import { getUserProfile, ensureUserProfile, updateUserProfile } from "../services/userService";
-import type { UserProfile, UserProfileUpdate } from "../types/user";
+import { getUserProfile, ensureUserProfile, updateOnboardingState, updateUserProfile } from "../services/userService";
+import type { OnboardingStatus, OnboardingStep, UserProfile, UserProfileUpdate } from "../types/user";
 
 type AuthContextValue = {
   user: User | null;
@@ -11,6 +11,7 @@ type AuthContextValue = {
   loading: boolean;
   refreshProfile: () => Promise<void>;
   saveProfile: (changes: UserProfileUpdate) => Promise<void>;
+  saveOnboarding: (status: OnboardingStatus, step: OnboardingStep, completedAt?: Date | null) => Promise<void>;
 };
 
 const authContextKey = "__fincontrol_auth_context__";
@@ -50,6 +51,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     saveProfile: async (changes) => {
       if (!user) return;
       await updateUserProfile(user.uid, changes);
+      await loadProfile(user);
+    },
+    saveOnboarding: async (status, step, completedAt = null) => {
+      if (!user) return;
+      await updateOnboardingState(user.uid, status, step, completedAt);
       await loadProfile(user);
     },
   }), [loadProfile, loading, profile, user]);

@@ -72,5 +72,6 @@ export function isNavigationPathActive(pathname: string, to: string) {
 }
 
 export function getNavigationTitle(pathname: string) {
+  if (pathname === "/app/onboarding") return "Primeiros passos";
   return navigationGroups.flatMap((group) => group.items).find((item) => isNavigationPathActive(pathname, item.to))?.label ?? "FinControl";
 }

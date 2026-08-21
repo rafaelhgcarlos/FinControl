@@ -14,6 +14,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Select } from "../components/Select";
 import { Table } from "../components/Table";
 import { TableSkeleton } from "../components/ui/Skeleton";
+import { IconButton } from "../components/ui/IconButton";
 import { UnsavedChangesDialog } from "../components/ui/UnsavedChangesDialog";
 import { TransactionForm } from "../components/TransactionForm";
 import { useAuth } from "../contexts/AuthContext";
@@ -238,8 +239,8 @@ export function TransactionsPage() {
                         <p className="text-xs text-slate-500">{transaction.type === "TRANSFER" ? "Sem categoria" : category?.name ?? "-"}</p>
                       </div>
                       <div className="flex gap-1">
-                        <Button aria-label="Editar" className="px-2" disabled={isActionPending()} variant="ghost" onClick={() => openEdit(transaction)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button>
-                        <Button aria-label="Excluir" className="px-2" disabled={isActionPending()} variant="ghost" onClick={() => void handleDelete(transaction)}><Trash2 className="h-4 w-4" aria-hidden="true" /></Button>
+                        <IconButton aria-label="Editar" disabled={isActionPending()} onClick={() => openEdit(transaction)}><Edit2 aria-hidden="true" /></IconButton>
+                        <IconButton aria-label="Excluir" disabled={isActionPending()} onClick={() => void handleDelete(transaction)}><Trash2 aria-hidden="true" /></IconButton>
                       </div>
                     </div>
                   </div>
@@ -272,7 +273,7 @@ export function TransactionsPage() {
                         <td className="px-3 py-3">{transaction.type === "TRANSFER" ? `${account?.name ?? "-"} -> ${destination?.name ?? "-"}` : account?.name ?? "-"}</td>
                         <td className="px-3 py-3"><Badge variant={transaction.type === "INCOME" ? "success" : transaction.type === "EXPENSE" ? "danger" : "neutral"}>{transaction.type === "INCOME" ? "Receita" : transaction.type === "EXPENSE" ? "Despesa" : "Transferencia"}</Badge></td>
                         <td className="px-3 py-3 font-medium">{formatCurrencyFromCents(transaction.amountInCents)}</td>
-                        <td className="px-3 py-3"><div className="flex justify-end gap-2"><Button aria-label="Editar" disabled={isActionPending()} variant="ghost" onClick={() => openEdit(transaction)}><Edit2 className="h-4 w-4" aria-hidden="true" /></Button><Button aria-label="Excluir" disabled={isActionPending()} variant="ghost" onClick={() => void handleDelete(transaction)}><Trash2 className="h-4 w-4" aria-hidden="true" /></Button></div></td>
+                        <td className="px-3 py-3"><div className="flex justify-end gap-2"><IconButton aria-label="Editar" disabled={isActionPending()} onClick={() => openEdit(transaction)}><Edit2 aria-hidden="true" /></IconButton><IconButton aria-label="Excluir" disabled={isActionPending()} onClick={() => void handleDelete(transaction)}><Trash2 aria-hidden="true" /></IconButton></div></td>
                       </tr>
                     );
                   })}

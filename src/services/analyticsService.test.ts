@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FirebaseError } from "firebase/app";
 import { isOptionalAnalyticsQueryUnavailable, resolvePeriod } from "./analyticsService";
-import { endOfFinancialMonth, startOfFinancialMonth } from "../utils/date";
 
 describe("analytics period helpers", () => {
   it("keeps custom period boundaries normalized", () => {
@@ -21,20 +20,13 @@ describe("analytics period helpers", () => {
     expect(savingsRate).toBeNull();
   });
 
-  it("respects custom financial month start day", () => {
-    const start = startOfFinancialMonth(new Date("2026-08-05T15:00:00"), 10);
-    const end = endOfFinancialMonth(new Date("2026-08-05T15:00:00"), 10);
+  it("uses the complete civil month", () => {
+    const period = resolvePeriod("month");
 
-    expect(start.toISOString().slice(0, 10)).toBe("2026-07-10");
-    expect(end.getFullYear()).toBe(2026);
-    expect(end.getMonth()).toBe(7);
-    expect(end.getDate()).toBe(9);
-  });
-
-  it("keeps financial periods stable around Sao Paulo timezone dates", () => {
-    const period = resolvePeriod("month", undefined, undefined, 15);
-
-    expect(period.startDate.getDate()).toBe(15);
+    expect(period.startDate.getDate()).toBe(1);
+    expect(period.startDate.getMonth()).toBe(period.endDate.getMonth());
+    expect(period.endDate.getDate()).toBe(new Date(period.endDate.getFullYear(), period.endDate.getMonth() + 1, 0).getDate());
+    expect(period.endDate.getHours()).toBe(23);
   });
 
   it("falls back while optional analytics indexes are unavailable", () => {

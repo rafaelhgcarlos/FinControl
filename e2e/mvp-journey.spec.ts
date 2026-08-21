@@ -96,7 +96,7 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
     await expect(page.locator("main > div > header").getByRole("heading", { name: heading })).toBeVisible();
   }
 
-  await page.getByLabel("Tema").selectOption("dark");
+  await page.getByRole("button", { name: /Escuro/ }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await context.setOffline(true);
   await expect(page.getByRole("status", { name: "Offline" })).toBeVisible();
@@ -109,6 +109,8 @@ test("jornada financeira integrada, isolada e descartavel", async ({ page, conte
   await page.getByLabel("E-mail").fill(`isolated-${Date.now()}@example.test`);
   await page.getByLabel("Senha").fill(testPassword);
   await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(page).toHaveURL(/\/app\/onboarding$/);
+  await page.getByRole("button", { name: "Pular por agora" }).click();
   await expect(page).toHaveURL(/\/app$/);
   await page.goto("/app/accounts");
   await expect(page.getByText("Nenhuma conta cadastrada")).toBeVisible();

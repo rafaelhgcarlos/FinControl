@@ -30,7 +30,7 @@ test("launcher, cancelamento, responsividade e dark mode", async ({ page }, test
   await expect(purchaseDialog.getByLabel("Quantidade de parcelas")).toHaveValue("2");
 
   await page.goto("/app/settings");
-  await page.getByLabel("Tema").selectOption("dark");
+  await page.getByRole("button", { name: /Escuro/ }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
   if (mobile) {
     const bottomNavigation = page.getByRole("navigation", { name: "Navegação inferior" });

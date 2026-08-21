@@ -306,15 +306,20 @@ describe("Firestore security rules", () => {
       locale: "pt-BR",
       currency: "BRL",
       timeZone: "America/Sao_Paulo",
-      financialMonthStartDay: 1,
     };
 
     await assertSucceeds(setDoc(doc(dbA, "users", userA), profileA));
     await assertFails(getDoc(doc(dbB, "users", userA)));
     await assertFails(setDoc(doc(dbA, "users", userB), { ...profileA, id: userB }));
     await assertFails(updateDoc(doc(dbA, "users", userA), { id: userB }));
-    await assertSucceeds(updateDoc(doc(dbA, "users", userA), { financialMonthStartDay: 10 }));
-    await assertFails(updateDoc(doc(dbA, "users", userA), { financialMonthStartDay: 31 }));
+    await assertFails(updateDoc(doc(dbA, "users", userA), { financialMonthStartDay: 10 }));
+    await assertSucceeds(updateDoc(doc(dbA, "users", userA), { onboardingStatus: "IN_PROGRESS", onboardingStep: 2, onboardingCompletedAt: null, onboardingVersion: 1 }));
+    await assertFails(updateDoc(doc(dbA, "users", userA), { onboardingStatus: "INVALID" }));
+    await assertFails(updateDoc(doc(dbB, "users", userA), { onboardingStatus: "SKIPPED", onboardingStep: 1 }));
+
+    await assertSucceeds(deleteDoc(doc(dbA, "users", userA)));
+    await assertSucceeds(setDoc(doc(dbA, "users", userA), { ...profileA, financialMonthStartDay: 15 }));
+    await assertSucceeds(updateDoc(doc(dbA, "users", userA), { displayName: "Perfil legado" }));
 
     const storedProfile = await getDoc(doc(dbA, "users", userA));
     expect(storedProfile.exists()).toBe(true);

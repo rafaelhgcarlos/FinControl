@@ -19,8 +19,7 @@ import { formatCurrencyFromCents } from "../utils/money";
 
 export function DashboardPage() {
   const { profile, user } = useAuth();
-  const financialMonthStartDay = profile?.financialMonthStartDay ?? 1;
-  const [period, setPeriod] = useState<DashboardPeriod>(() => getDefaultDashboardPeriod(financialMonthStartDay));
+  const [period, setPeriod] = useState<DashboardPeriod>(getDefaultDashboardPeriod);
   const [analytics, setAnalytics] = useState<FinancialAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,16 +41,12 @@ export function DashboardPage() {
     void loadData();
   }, [loadData]);
 
-  useEffect(() => {
-    setPeriod((current) => current.preset === "month" ? resolvePeriod("month", undefined, undefined, financialMonthStartDay) : current);
-  }, [financialMonthStartDay]);
-
   function handlePresetChange(preset: PeriodPreset) {
-    setPeriod(resolvePeriod(preset, period.startDate, period.endDate, financialMonthStartDay));
+    setPeriod(resolvePeriod(preset, period.startDate, period.endDate));
   }
 
   function handleCustomChange(startDate: Date, endDate: Date) {
-    setPeriod(resolvePeriod("custom", startDate, endDate, financialMonthStartDay));
+    setPeriod(resolvePeriod("custom", startDate, endDate));
   }
 
   const stats = analytics ? [

@@ -1,7 +1,7 @@
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "../components/Badge";
-import { Button } from "../components/Button";
+import { IconButton } from "../components/ui/IconButton";
 import { Card } from "../components/Card";
 import { EmptyState } from "../components/EmptyState";
 import { ErrorState } from "../components/ErrorState";
@@ -40,7 +40,7 @@ export function CalendarPage() {
   const days = buildMonthDays(month);
 
   return <>
-    <PageHeader title="Calendário financeiro" description="Eventos realizados e previstos, consultados somente para o mes exibido." action={<div className="flex items-center gap-2"><Button aria-label="Mes anterior" variant="secondary" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button><strong className="min-w-32 text-center capitalize">{month.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</strong><Button aria-label="Proximo mes" variant="secondary" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button></div>} />
+    <PageHeader title="Calendário financeiro" description="Eventos realizados e previstos, consultados somente para o mes exibido." action={<div className="flex items-center gap-2"><IconButton aria-label="Mes anterior" variant="secondary" onClick={() => navigate(-1)}><ChevronLeft /></IconButton><strong className="min-w-32 text-center capitalize">{month.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</strong><IconButton aria-label="Proximo mes" variant="secondary" onClick={() => navigate(1)}><ChevronRight /></IconButton></div>} />
     {error ? <ErrorState message={error} /> : loading ? <Card><LoadingState label="Carregando calendario" /></Card> : <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
       <Card className="overflow-x-auto"><div className="min-w-[560px]"><div className="grid grid-cols-7 gap-1">{weekdayLabels.map((label) => <div key={label} className="py-2 text-center text-xs font-semibold text-slate-500">{label}</div>)}{days.map((day, index) => {
         const dateKey = day ? toSaoPauloDateKey(day) : ""; const dayEvents = day ? groups[dateKey] ?? [] : [];

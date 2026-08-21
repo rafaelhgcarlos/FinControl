@@ -41,26 +41,8 @@ export function endOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
 }
 
-export function startOfFinancialMonth(date: Date, startDay = 1) {
-  const day = clampFinancialStartDay(startDay);
-  const start = new Date(date.getFullYear(), date.getMonth(), day);
-  if (date.getDate() < day) start.setMonth(start.getMonth() - 1);
-  return startOfDay(start);
-}
-
-export function endOfFinancialMonth(date: Date, startDay = 1) {
-  const next = startOfFinancialMonth(date, startDay);
-  next.setMonth(next.getMonth() + 1);
-  next.setDate(next.getDate() - 1);
-  return endOfDay(next);
-}
-
 export function monthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function clampFinancialStartDay(day: number) {
-  return Math.min(28, Math.max(1, Math.trunc(day || 1)));
 }
 
 export function startOfYear(date: Date) {

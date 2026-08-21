@@ -1,8 +1,8 @@
-import type { HTMLAttributes } from "react";
+import type { ElementType, HTMLAttributes } from "react";
 import { cn } from "../utils/cn";
 import { surfaceClassName } from "./ui/styles";
 
-type CardProps = HTMLAttributes<HTMLDivElement> & { variant?: "default" | "subtle" | "interactive" };
+type CardProps = HTMLAttributes<HTMLElement> & { as?: ElementType; variant?: "default" | "subtle" | "interactive" };
 
 const variants = {
   default: "",
@@ -10,9 +10,9 @@ const variants = {
   interactive: "transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md",
 };
 
-export function Card({ className, variant = "default", ...props }: CardProps) {
+export function Card({ as: Component = "div", className, variant = "default", ...props }: CardProps) {
   return (
-    <div
+    <Component
       className={cn(
         surfaceClassName,
         "p-4 sm:p-5",

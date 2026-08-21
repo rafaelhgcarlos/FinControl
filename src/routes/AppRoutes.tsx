@@ -15,6 +15,7 @@ import { NotFoundPage } from "../pages/NotFoundPage";
 import { ReportsPage } from "../pages/ReportsPage";
 import { RecurringTransactionsPage } from "../pages/RecurringTransactionsPage";
 import { SettingsPage } from "../pages/SettingsPage";
+import { OnboardingPage } from "../pages/OnboardingPage";
 import { TransactionsPage } from "../pages/TransactionsPage";
 
 export function AppRoutes() {
@@ -40,6 +41,7 @@ export function AppRoutes() {
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="onboarding" element={<OnboardingPage />} />
         </Route>
         <Route element={<AdminRoute />}><Route path="/admin" element={<AdminPage />} /></Route>
       </Route>

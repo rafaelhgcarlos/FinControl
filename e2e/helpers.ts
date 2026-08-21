@@ -11,6 +11,8 @@ export async function registerDisposableUser(page: Page, suffix: string) {
   await page.getByLabel("E-mail").fill(email);
   await page.getByLabel("Senha").fill(testPassword);
   await page.getByRole("button", { name: "Criar conta" }).click();
+  await expect(page).toHaveURL(/\/app\/onboarding$/);
+  await page.getByRole("button", { name: "Pular por agora" }).click();
   await expect(page).toHaveURL(/\/app$/);
   return email;
 }

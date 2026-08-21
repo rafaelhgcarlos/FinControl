@@ -12,6 +12,7 @@ import { Select } from "../components/Select";
 import { Table } from "../components/Table";
 import { LoadingState } from "../components/LoadingState";
 import { FormActions } from "../components/ui/FormActions";
+import { IconButton } from "../components/ui/IconButton";
 import { UnsavedChangesDialog } from "../components/ui/UnsavedChangesDialog";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
@@ -110,7 +111,7 @@ export function CategoriesPage() {
                   </div>
                   <div className="mt-3 flex items-center justify-between gap-3">
                     <Badge variant={category.status === "ACTIVE" ? "success" : "neutral"}>{category.status === "ACTIVE" ? "Ativa" : "Arquivada"}</Badge>
-                    {category.status === "ACTIVE" ? <Button aria-label="Arquivar categoria" className="px-2" disabled={isActionPending()} variant="ghost" onClick={() => void handleArchive(category)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}
+                    {category.status === "ACTIVE" ? <IconButton aria-label="Arquivar categoria" disabled={isActionPending()} onClick={() => void handleArchive(category)}><Archive aria-hidden="true" /></IconButton> : null}
                   </div>
                 </div>
               ))}
@@ -133,7 +134,7 @@ export function CategoriesPage() {
                       <td className="px-3 py-3">{category.type === "INCOME" ? "Receita" : "Despesa"}</td>
                       <td className="px-3 py-3"><Badge>{category.isDefault ? "Padrao" : "Personalizada"}</Badge></td>
                       <td className="px-3 py-3"><Badge variant={category.status === "ACTIVE" ? "success" : "neutral"}>{category.status === "ACTIVE" ? "Ativa" : "Arquivada"}</Badge></td>
-                      <td className="px-3 py-3 text-right">{category.status === "ACTIVE" ? <Button aria-label="Arquivar categoria" disabled={isActionPending()} variant="ghost" onClick={() => void handleArchive(category)}><Archive className="h-4 w-4" aria-hidden="true" /></Button> : null}</td>
+                      <td className="px-3 py-3 text-right">{category.status === "ACTIVE" ? <IconButton aria-label="Arquivar categoria" disabled={isActionPending()} onClick={() => void handleArchive(category)}><Archive aria-hidden="true" /></IconButton> : null}</td>
                     </tr>
                   ))}
                 </tbody>

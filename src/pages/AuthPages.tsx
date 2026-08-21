@@ -25,7 +25,7 @@ function AuthForm({ mode }: { mode: "login" | "register" }) {
   const isRegister = mode === "register";
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setBusy(true);
-    try { if (isRegister) await register(email, password, name); else await login(email, password); navigate("/app", { replace: true }); }
+    try { if (isRegister) await register(email, password, name); else await login(email, password); navigate(isRegister ? "/app/onboarding" : "/app", { replace: true }); }
     catch (submissionError) { setError(authErrorMessage(submissionError)); }
     finally { setBusy(false); }
   }
